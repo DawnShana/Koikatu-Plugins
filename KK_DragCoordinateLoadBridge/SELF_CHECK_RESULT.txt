@@ -1,0 +1,34 @@
+PASS  Plugin version is 1.2.1
+PASS  Loads in CharaStudio
+PASS  Loads in Koikatu
+PASS  Only one HarmonyInstance.Patch call
+PASS  Studio target remains StudioHandler
+PASS  Maker target remains MakerHandler
+PASS  Maker prefix is fail-closed after accepted path
+PASS  Maker busy protection retained
+PASS  Maker short deferred retry retained
+PASS  Last-drop generation retained
+PASS  Maker real list is not injected
+PASS  Maker native Load button maintained in LateUpdate
+PASS  CLO panel IsActive semantic retained
+PASS  CLO coordinatePath readback retained
+PASS  CLO live Maker window binding checked
+PASS  Native Maker UI navigation occurs before CLO panel readiness
+PASS  Main System uses audited semantic index 6
+PASS  No Transform ancestry guessing
+PASS  CoordinateLoad enum matched by name
+PASS  No numeric CoordinateLoad == 3 runtime hardpin
+PASS  No Maker Harmony patch-table gate
+PASS  No Maker-only dead Harmony helpers after adapter start
+PASS  No second custom UI
+PASS  Build version is 1.2.1
+PASS  Build uses Framework csc
+PASS  Build uses /nostdlib+
+PASS  Build uses /langversion:4
+PASS  Build does not invoke dotnet
+PASS  Build does not invoke nuget
+PASS  Lexical state closes cleanly
+PASS  Brace/parenthesis/bracket balance
+
+31/31 PASS
+Compiler/runtime execution: NOT RUN in this environment.

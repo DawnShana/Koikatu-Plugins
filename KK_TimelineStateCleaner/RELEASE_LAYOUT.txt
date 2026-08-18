@@ -1,0 +1,8 @@
+KK_TimelineStateCleaner_v1.3.1.zip
+└─ BepInEx
+   └─ plugins
+      └─ KK_TimelineStateCleaner
+         └─ KK_TimelineStateCleaner.dll
+
+Normal users only need the DLL above.
+Source and build.bat are developer/maintenance files.

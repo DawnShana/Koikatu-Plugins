@@ -1,0 +1,44 @@
+﻿KKPEHeightLockStandalone v1.2.1 SIMPLIFIED - FINAL SELF AUDIT
+================================================================
+
+Overall: PASS
+
+Principle: no speculative/over-defensive ownership logic.
+Reflection only for KKPE private members; public APIs are used directly.
+
+Checks:
+  [PASS] lexical closes
+  [PASS] braces balanced
+  [PASS] parentheses balanced
+  [PASS] brackets balanced
+  [PASS] C#4 no interpolated string
+  [PASS] C#4 no null conditional
+  [PASS] C#4 no nameof
+  [PASS] C#4 no async/await
+  [PASS] 2 Harmony patches only
+  [PASS] KKPE hard dependency GUID
+  [PASS] CharaStudio process filter
+  [PASS] no nested TypeByName string
+  [PASS] TransformData derived from _dirtyBones
+  [PASS] GenericOCITarget direct
+  [PASS] EditableValue direct
+  [PASS] ChaFileBody direct
+  [PASS] no typeBone
+  [PASS] no LastValue
+  [PASS] no epsilon
+  [PASS] true unlock Reset
+  [PASS] true unlock KKPE cleanup
+  [PASS] preexisting scale not overwritten
+  [PASS] height state cache
+  [PASS] ChangeChara releases old height state
+  [PASS] body refresh public API
+  [PASS] bust refresh public API
+  [PASS] no VR
+  [PASS] no KKAPI
+  [PASS] no Timeline API
+  [PASS] no MaterialEditor
+  [PASS] no direct file IO
+  [PASS] build /noconfig
+  [PASS] build /nostdlib+
+  [PASS] build /langversion:4
+  [PASS] build no auto-install variable
