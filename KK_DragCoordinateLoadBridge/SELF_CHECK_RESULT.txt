@@ -1,27 +1,43 @@
-PASS  Plugin version is 1.2.1
+PASS  Plugin version is 1.2.3
 PASS  Loads in CharaStudio
 PASS  Loads in Koikatu
 PASS  Only one HarmonyInstance.Patch call
 PASS  Studio target remains StudioHandler
 PASS  Maker target remains MakerHandler
-PASS  Maker prefix is fail-closed after accepted path
-PASS  Maker busy protection retained
+PASS  Maker valid drop remains fail-closed
+PASS  Maker intercept log states original DnD is suppressed
+PASS  Maker busy guard retained
+PASS  Prepared Maker path is not consumed merely because CLO becomes busy
 PASS  Maker short deferred retry retained
 PASS  Last-drop generation retained
 PASS  Maker real list is not injected
 PASS  Maker native Load button maintained in LateUpdate
 PASS  CLO panel IsActive semantic retained
 PASS  CLO coordinatePath readback retained
-PASS  CLO live Maker window binding checked
+PASS  No pre-OnSelect CLO CustomFileWindow circular gate
+PASS  Post-OnSelect CLO window verification retained
+PASS  Maker has dedicated CLO Show Selection opener
+PASS  CLO real Show Selection hierarchy names used
+PASS  CLO Show Selection invokes Button onClick
+PASS  Show Selection does not click again when already active
+PASS  Show Selection verifies CLO panel after click
+PASS  Show Selection waits for active native Coordinate Load hierarchy
+PASS  Maker no longer directly opens CLO panel with SetActive(true)
+PASS  Maker does not partially rollback only panel.activeSelf
+PASS  Path drift releases ownership rather than fighting later user selection
+PASS  Path drift disables the bridge-armed Load button before release
 PASS  Native Maker UI navigation occurs before CLO panel readiness
 PASS  Main System uses audited semantic index 6
-PASS  No Transform ancestry guessing
+PASS  No Transform ancestry guessing for Maker System tab
+PASS  No redundant Maker CanvasGroup readiness gate
 PASS  CoordinateLoad enum matched by name
 PASS  No numeric CoordinateLoad == 3 runtime hardpin
 PASS  No Maker Harmony patch-table gate
-PASS  No Maker-only dead Harmony helpers after adapter start
-PASS  No second custom UI
-PASS  Build version is 1.2.1
+PASS  No second custom UI created by Maker bridge
+PASS  Maker bridge does not patch CLO methods
+PASS  Maker bridge does not load/change ChaControl directly
+PASS  Build version is 1.2.3
+PASS  Build temp tag is v123
 PASS  Build uses Framework csc
 PASS  Build uses /nostdlib+
 PASS  Build uses /langversion:4
@@ -30,5 +46,5 @@ PASS  Build does not invoke nuget
 PASS  Lexical state closes cleanly
 PASS  Brace/parenthesis/bracket balance
 
-31/31 PASS
+47/47 PASS
 Compiler/runtime execution: NOT RUN in this environment.

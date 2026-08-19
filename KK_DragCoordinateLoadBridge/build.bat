@@ -3,7 +3,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo ======================================================
-echo   KK Drag Coordinate Load Bridge v1.2.1 - NET35 Build
+echo   KK Drag Coordinate Load Bridge v1.2.3 - NET35 Build
 echo ======================================================
 echo.
 echo This build uses your local Koikatu/CharaStudio/BepInEx assemblies.
@@ -81,7 +81,7 @@ echo [INFO] Managed  : %MANAGED%
 echo [INFO] Runtime  : %MANAGED%\mscorlib.dll
 echo.
 
-set "BUILD_TMP=%TEMP%\KK_DragCoordinateLoadBridge_v121_%RANDOM%_%RANDOM%"
+set "BUILD_TMP=%TEMP%\KK_DragCoordinateLoadBridge_v123_%RANDOM%_%RANDOM%"
 if exist "%BUILD_TMP%" rmdir /s /q "%BUILD_TMP%"
 mkdir "%BUILD_TMP%" >nul 2>&1
 if errorlevel 1 (

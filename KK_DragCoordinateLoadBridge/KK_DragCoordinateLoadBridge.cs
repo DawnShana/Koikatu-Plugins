@@ -21,7 +21,7 @@ namespace KK_DragCoordinateLoadBridge
     {
         public const string PluginGuid = "agumon.kk.dragcoordinateloadbridge";
         public const string PluginName = "KK Drag Coordinate Load Bridge";
-        public const string PluginVersion = "1.2.1";
+        public const string PluginVersion = "1.2.3";
 
         private const string DragAndDropGuid = "keelhauled.draganddrop";
         private const string CoordinateLoadOptionGuid = "com.jim60105.kk.coordinateloadoption";
@@ -408,7 +408,7 @@ namespace KK_DragCoordinateLoadBridge
 
             SetLastAction("Maker observed: " + Path.GetFileName(path));
             if (VerboseConfig != null && VerboseConfig.Value)
-                BridgeInfo("Maker coordinate drop observed: " + path);
+                BridgeInfo("Maker coordinate drop intercepted; original DragAndDrop whole-coordinate load will be suppressed: " + path);
 
             int generation = ++DropGeneration;
 
@@ -1403,7 +1403,6 @@ namespace KK_DragCoordinateLoadBridge
         private readonly FieldInfo _toggleGroupItemsField;
         private readonly MethodInfo _toggleGroupGetSelectIndexMethod;
         private readonly FieldInfo _toggleItemToggleField;
-        private readonly FieldInfo _toggleItemCanvasGroupField;
         private readonly PropertyInfo _toggleIsOnProperty;
         private readonly FieldInfo _systemFileWindowsField;
         private readonly FieldInfo _systemWindowTypesField;
@@ -1431,7 +1430,6 @@ namespace KK_DragCoordinateLoadBridge
             FieldInfo toggleGroupItemsField,
             MethodInfo toggleGroupGetSelectIndexMethod,
             FieldInfo toggleItemToggleField,
-            FieldInfo toggleItemCanvasGroupField,
             PropertyInfo toggleIsOnProperty,
             FieldInfo systemFileWindowsField,
             FieldInfo systemWindowTypesField,
@@ -1454,7 +1452,6 @@ namespace KK_DragCoordinateLoadBridge
             _toggleGroupItemsField = toggleGroupItemsField;
             _toggleGroupGetSelectIndexMethod = toggleGroupGetSelectIndexMethod;
             _toggleItemToggleField = toggleItemToggleField;
-            _toggleItemCanvasGroupField = toggleItemCanvasGroupField;
             _toggleIsOnProperty = toggleIsOnProperty;
             _systemFileWindowsField = systemFileWindowsField;
             _systemWindowTypesField = systemWindowTypesField;
@@ -1580,18 +1577,15 @@ namespace KK_DragCoordinateLoadBridge
                 Type toggleItemType = toggleGroupItemsField.FieldType.GetElementType();
                 FieldInfo toggleItemToggleField = toggleItemType == null ? null :
                     toggleItemType.GetField("tglItem", InstanceAll);
-                FieldInfo toggleItemCanvasGroupField = toggleItemType == null ? null :
-                    toggleItemType.GetField("cgItem", InstanceAll);
                 PropertyInfo toggleIsOnProperty = toggleItemToggleField == null ? null :
                     toggleItemToggleField.FieldType.GetProperty("isOn", InstanceAll);
 
-                if (toggleItemToggleField == null || toggleItemCanvasGroupField == null ||
+                if (toggleItemToggleField == null ||
                     !typeof(Component).IsAssignableFrom(toggleItemToggleField.FieldType) ||
-                    !typeof(CanvasGroup).IsAssignableFrom(toggleItemCanvasGroupField.FieldType) ||
                     toggleIsOnProperty == null || !toggleIsOnProperty.CanRead || !toggleIsOnProperty.CanWrite ||
                     toggleIsOnProperty.PropertyType != typeof(bool))
                 {
-                    LogContract("UI_ToggleGroupCtrl.ItemInfo tglItem/cgItem contract was not found.");
+                    LogContract("UI_ToggleGroupCtrl.ItemInfo tglItem contract was not found.");
                     return null;
                 }
 
@@ -1629,7 +1623,6 @@ namespace KK_DragCoordinateLoadBridge
                     toggleGroupItemsField,
                     toggleGroupGetSelectIndexMethod,
                     toggleItemToggleField,
-                    toggleItemCanvasGroupField,
                     toggleIsOnProperty,
                     systemFileWindowsField,
                     systemWindowTypesField,
@@ -1763,15 +1756,73 @@ namespace KK_DragCoordinateLoadBridge
                 _toggleIsOnProperty.SetValue(toggle, true, null);
 
             object selectedRaw = _toggleGroupGetSelectIndexMethod.Invoke(toggleGroup, null);
-            if (!(selectedRaw is int) || (int)selectedRaw != index)
-                return false;
+            return selectedRaw is int && (int)selectedRaw == index;
+        }
 
-            // UI_ToggleGroupCtrl's audited native listener calls CanvasGroupExtensions.Enable:
-            // selected item => alpha=1, interactable=true, blocksRaycasts=true. Checking the
-            // CanvasGroup prevents treating a Toggle value changed before Start wiring as ready.
-            CanvasGroup canvasGroup = _toggleItemCanvasGroupField.GetValue(item) as CanvasGroup;
-            return canvasGroup != null && canvasGroup.alpha > 0.5f &&
-                canvasGroup.interactable && canvasGroup.blocksRaycasts;
+        private PrepareResult EnsureCloSelectionPanelOpen(object panel)
+        {
+            if (panel == null)
+                return PrepareResult.UiNotReady;
+
+            object activeRaw = _panelIsActiveMethod.Invoke(panel, null);
+            if (activeRaw is bool && (bool)activeRaw)
+                return PrepareResult.Prepared;
+
+            Component panelComponent = panel as Component;
+            if (panelComponent == null || panelComponent.transform == null || panelComponent.transform.parent == null)
+            {
+                LogMessage("CLO Maker selection panel hierarchy is not ready yet.");
+                return PrepareResult.UiNotReady;
+            }
+
+            // CLO's Maker Show Selection button does more than panel.SetActive(true): it also
+            // turns on the native Coordinate Load toggles required for the temporary character
+            // to load the full coordinate, hides the native coarse selector, and refreshes the
+            // CoordinateLoad panel. Invoke CLO's own button instead of reproducing that logic.
+            Transform buttonTransform = panelComponent.transform.parent.Find("CoordinateLoadPanel/CoordinateLoadBtn");
+            if (buttonTransform == null)
+            {
+                LogMessage("CLO Maker Show Selection button is not initialized yet.");
+                return PrepareResult.UiNotReady;
+            }
+
+            Type buttonType = _fileWindowLoadButtonProperty.PropertyType;
+            Component showSelectionButton = buttonTransform.GetComponent(buttonType);
+            if (showSelectionButton == null)
+            {
+                LogMessage("CLO Maker Show Selection Button component is not ready yet.");
+                return PrepareResult.UiNotReady;
+            }
+
+            // Do not invoke the button merely because the objects exist. CustomFileWindow.Start()
+            // initializes its fwType -> UpdateWindow subscription asynchronously. Until the real
+            // Coordinate Load hierarchy is active, CLO's Maker button would run too early and its
+            // GetComponentsInChildren<Toggle>() preparation can miss the native load toggles.
+            if (!showSelectionButton.gameObject.activeInHierarchy)
+            {
+                LogMessage("CLO Maker Show Selection button exists but the native Coordinate Load window is not active yet.");
+                return PrepareResult.UiNotReady;
+            }
+
+            const BindingFlags InstanceAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            PropertyInfo onClickProperty = buttonType.GetProperty("onClick", InstanceAll);
+            object onClick = onClickProperty == null ? null : onClickProperty.GetValue(showSelectionButton, null);
+            MethodInfo invokeMethod = onClick == null ? null : onClick.GetType().GetMethod(
+                "Invoke", InstanceAll, null, Type.EmptyTypes, null);
+            if (invokeMethod == null || invokeMethod.ReturnType != typeof(void))
+                throw new InvalidOperationException("CLO Maker Show Selection Button.onClick.Invoke() was not found.");
+
+            invokeMethod.Invoke(onClick, null);
+
+            activeRaw = _panelIsActiveMethod.Invoke(panel, null);
+            if (!(activeRaw is bool) || !(bool)activeRaw)
+            {
+                LogMessage("CLO Maker Show Selection button ran, but its selection panel is not active yet.");
+                return PrepareResult.UiNotReady;
+            }
+
+            LogMessage("Invoked CLO Maker's real Show Selection button.");
+            return PrepareResult.Prepared;
         }
 
         internal bool IsUnderlyingLoadBusy()
@@ -1836,22 +1887,10 @@ namespace KK_DragCoordinateLoadBridge
                     return PrepareResult.UiNotReady;
                 }
 
-                // A live CLO CustomFileWindow reference is the runtime evidence that Maker
-                // InitPostfix already initialized this window. Harmony patch-table inspection
-                // is deliberately not used here; it was redundant and could reject compatible
-                // setups without proving the button listener state anyway.
-                object initializedCloWindow = _cloCustomFileWindowField.GetValue(null);
-                if (initializedCloWindow == null)
-                {
-                    LogMessage("CLO Maker window binding is not initialized yet.");
-                    return PrepareResult.UiNotReady;
-                }
-                if (!object.ReferenceEquals(initializedCloWindow, fileWindow))
-                {
-                    LogMessage("CLO Maker window binding has not caught up with the active Coordinate Load window yet.");
-                    return PrepareResult.UiNotReady;
-                }
-
+                // CLO Maker assigns Patches.CustomFileWindow inside OnSelectPostfix itself.
+                // Waiting for that field before invoking OnSelectPostfix is a circular first-use
+                // dependency. Call CLO with the detached selection first, then verify both the
+                // accepted path and the window binding below.
                 MakerSelectProxy proxy = new MakerSelectProxy(fileWindow, path);
                 _onSelectPostfix.Invoke(null, new object[] { proxy });
 
@@ -1878,17 +1917,11 @@ namespace KK_DragCoordinateLoadBridge
                     originalInteractable = GetButtonInteractable(loadButton);
                 }
 
-                bool oldPanelActive = panelComponent.gameObject.activeSelf;
                 try
                 {
-                    panelComponent.gameObject.SetActive(true);
-                    object activeRaw = _panelIsActiveMethod.Invoke(panel, null);
-                    if (!(activeRaw is bool) || !(bool)activeRaw)
-                    {
-                        panelComponent.gameObject.SetActive(oldPanelActive);
-                        LogMessage("CLO Maker panel exists but is not active in the current window hierarchy yet.");
-                        return PrepareResult.UiNotReady;
-                    }
+                    PrepareResult selectionUiResult = EnsureCloSelectionPanelOpen(panel);
+                    if (selectionUiResult != PrepareResult.Prepared)
+                        return selectionUiResult;
 
                     SetButtonInteractable(loadButton, true);
                     if (!GetButtonInteractable(loadButton))
@@ -1901,8 +1934,10 @@ namespace KK_DragCoordinateLoadBridge
                 }
                 catch
                 {
+                    // Show Selection is opened through CLO's own button and has several Maker-specific
+                    // side effects. Do not attempt a partial rollback by toggling only panel.activeSelf.
+                    // Restore only the Load button state that this bridge directly changed.
                     try { SetButtonInteractable(loadButton, originalInteractable); } catch { }
-                    try { panelComponent.gameObject.SetActive(oldPanelActive); } catch { }
                     _preparedPath = null;
                     _preparedLoadButton = null;
                     throw;
@@ -1934,13 +1969,20 @@ namespace KK_DragCoordinateLoadBridge
                 string currentPath = _coordinatePathField.GetValue(null) as string;
                 if (!PathsEqual(currentPath, _preparedPath))
                 {
+                    LogMessage("CLO Maker coordinatePath changed away from the pending dragged card; disabling the bridge-armed Load button and releasing ownership. Current path: " + (currentPath ?? "<null>"));
+                    object previousButton = _preparedLoadButton;
                     _preparedPath = null;
                     _preparedLoadButton = null;
+                    SetButtonInteractable(previousButton, false);
                     return;
                 }
 
                 if (IsUnderlyingLoadBusy())
                 {
+                    // Keep the virtual dragged selection pending while CLO is working. CLO can
+                    // intentionally ask the user to press Load again (for example after bound-
+                    // accessory handling), so consuming the pending path merely because tmpChaCtrl
+                    // became busy would make that legitimate second click impossible.
                     SetButtonInteractable(_preparedLoadButton, false);
                     return;
                 }

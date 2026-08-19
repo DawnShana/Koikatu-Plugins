@@ -1,0 +1,120 @@
+--- /mnt/data/KK_DragCoordinateLoadBridge_v1.2.2/KK_DragCoordinateLoadBridge.cs	2026-08-18 16:14:44.618544669 +0000
++++ /mnt/data/KK_DragCoordinateLoadBridge_v1.2.3/KK_DragCoordinateLoadBridge.cs	2026-08-18 16:22:16.682220001 +0000
+@@ -21,7 +21,7 @@
+     {
+         public const string PluginGuid = "agumon.kk.dragcoordinateloadbridge";
+         public const string PluginName = "KK Drag Coordinate Load Bridge";
+-        public const string PluginVersion = "1.2.2";
++        public const string PluginVersion = "1.2.3";
+ 
+         private const string DragAndDropGuid = "keelhauled.draganddrop";
+         private const string CoordinateLoadOptionGuid = "com.jim60105.kk.coordinateloadoption";
+@@ -1403,7 +1403,6 @@
+         private readonly FieldInfo _toggleGroupItemsField;
+         private readonly MethodInfo _toggleGroupGetSelectIndexMethod;
+         private readonly FieldInfo _toggleItemToggleField;
+-        private readonly FieldInfo _toggleItemCanvasGroupField;
+         private readonly PropertyInfo _toggleIsOnProperty;
+         private readonly FieldInfo _systemFileWindowsField;
+         private readonly FieldInfo _systemWindowTypesField;
+@@ -1431,7 +1430,6 @@
+             FieldInfo toggleGroupItemsField,
+             MethodInfo toggleGroupGetSelectIndexMethod,
+             FieldInfo toggleItemToggleField,
+-            FieldInfo toggleItemCanvasGroupField,
+             PropertyInfo toggleIsOnProperty,
+             FieldInfo systemFileWindowsField,
+             FieldInfo systemWindowTypesField,
+@@ -1454,7 +1452,6 @@
+             _toggleGroupItemsField = toggleGroupItemsField;
+             _toggleGroupGetSelectIndexMethod = toggleGroupGetSelectIndexMethod;
+             _toggleItemToggleField = toggleItemToggleField;
+-            _toggleItemCanvasGroupField = toggleItemCanvasGroupField;
+             _toggleIsOnProperty = toggleIsOnProperty;
+             _systemFileWindowsField = systemFileWindowsField;
+             _systemWindowTypesField = systemWindowTypesField;
+@@ -1580,18 +1577,15 @@
+                 Type toggleItemType = toggleGroupItemsField.FieldType.GetElementType();
+                 FieldInfo toggleItemToggleField = toggleItemType == null ? null :
+                     toggleItemType.GetField("tglItem", InstanceAll);
+-                FieldInfo toggleItemCanvasGroupField = toggleItemType == null ? null :
+-                    toggleItemType.GetField("cgItem", InstanceAll);
+                 PropertyInfo toggleIsOnProperty = toggleItemToggleField == null ? null :
+                     toggleItemToggleField.FieldType.GetProperty("isOn", InstanceAll);
+ 
+-                if (toggleItemToggleField == null || toggleItemCanvasGroupField == null ||
++                if (toggleItemToggleField == null ||
+                     !typeof(Component).IsAssignableFrom(toggleItemToggleField.FieldType) ||
+-                    !typeof(CanvasGroup).IsAssignableFrom(toggleItemCanvasGroupField.FieldType) ||
+                     toggleIsOnProperty == null || !toggleIsOnProperty.CanRead || !toggleIsOnProperty.CanWrite ||
+                     toggleIsOnProperty.PropertyType != typeof(bool))
+                 {
+-                    LogContract("UI_ToggleGroupCtrl.ItemInfo tglItem/cgItem contract was not found.");
++                    LogContract("UI_ToggleGroupCtrl.ItemInfo tglItem contract was not found.");
+                     return null;
+                 }
+ 
+@@ -1629,7 +1623,6 @@
+                     toggleGroupItemsField,
+                     toggleGroupGetSelectIndexMethod,
+                     toggleItemToggleField,
+-                    toggleItemCanvasGroupField,
+                     toggleIsOnProperty,
+                     systemFileWindowsField,
+                     systemWindowTypesField,
+@@ -1763,15 +1756,7 @@
+                 _toggleIsOnProperty.SetValue(toggle, true, null);
+ 
+             object selectedRaw = _toggleGroupGetSelectIndexMethod.Invoke(toggleGroup, null);
+-            if (!(selectedRaw is int) || (int)selectedRaw != index)
+-                return false;
+-
+-            // UI_ToggleGroupCtrl's audited native listener calls CanvasGroupExtensions.Enable:
+-            // selected item => alpha=1, interactable=true, blocksRaycasts=true. Checking the
+-            // CanvasGroup prevents treating a Toggle value changed before Start wiring as ready.
+-            CanvasGroup canvasGroup = _toggleItemCanvasGroupField.GetValue(item) as CanvasGroup;
+-            return canvasGroup != null && canvasGroup.alpha > 0.5f &&
+-                canvasGroup.interactable && canvasGroup.blocksRaycasts;
++            return selectedRaw is int && (int)selectedRaw == index;
+         }
+ 
+         private PrepareResult EnsureCloSelectionPanelOpen(object panel)
+@@ -1809,6 +1794,16 @@
+                 return PrepareResult.UiNotReady;
+             }
+ 
++            // Do not invoke the button merely because the objects exist. CustomFileWindow.Start()
++            // initializes its fwType -> UpdateWindow subscription asynchronously. Until the real
++            // Coordinate Load hierarchy is active, CLO's Maker button would run too early and its
++            // GetComponentsInChildren<Toggle>() preparation can miss the native load toggles.
++            if (!showSelectionButton.gameObject.activeInHierarchy)
++            {
++                LogMessage("CLO Maker Show Selection button exists but the native Coordinate Load window is not active yet.");
++                return PrepareResult.UiNotReady;
++            }
++
+             const BindingFlags InstanceAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+             PropertyInfo onClickProperty = buttonType.GetProperty("onClick", InstanceAll);
+             object onClick = onClickProperty == null ? null : onClickProperty.GetValue(showSelectionButton, null);
+@@ -1974,14 +1969,20 @@
+                 string currentPath = _coordinatePathField.GetValue(null) as string;
+                 if (!PathsEqual(currentPath, _preparedPath))
+                 {
+-                    LogMessage("CLO Maker coordinatePath changed away from the pending dragged card; releasing bridge ownership. Current path: " + (currentPath ?? "<null>"));
++                    LogMessage("CLO Maker coordinatePath changed away from the pending dragged card; disabling the bridge-armed Load button and releasing ownership. Current path: " + (currentPath ?? "<null>"));
++                    object previousButton = _preparedLoadButton;
+                     _preparedPath = null;
+                     _preparedLoadButton = null;
++                    SetButtonInteractable(previousButton, false);
+                     return;
+                 }
+ 
+                 if (IsUnderlyingLoadBusy())
+                 {
++                    // Keep the virtual dragged selection pending while CLO is working. CLO can
++                    // intentionally ask the user to press Load again (for example after bound-
++                    // accessory handling), so consuming the pending path merely because tmpChaCtrl
++                    // became busy would make that legitimate second click impossible.
+                     SetButtonInteractable(_preparedLoadButton, false);
+                     return;
+                 }
