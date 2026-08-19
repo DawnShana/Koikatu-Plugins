@@ -1,0 +1,45 @@
+name: Publish KK_DragCoordinateLoadBridge v1.2.3
+
+on:
+  push:
+    branches:
+      - publish-v1.2.3-temp
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct exact v1.2.3 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .publish_v123/patch.part.* > /tmp/v123.patch.b64
+          base64 -d /tmp/v123.patch.b64 | gzip -d > /tmp/v123.diff
+          patch -s KK_DragCoordinateLoadBridge/KK_DragCoordinateLoadBridge.cs < /tmp/v123.diff
+          echo "d935d5d905e8f229a52666056444b5644793f3041907f680b663d0fc86e9478f  KK_DragCoordinateLoadBridge/KK_DragCoordinateLoadBridge.cs" | sha256sum -c -
+
+          cat .publish_v123/docs.part.* > /tmp/v123.docs.b64
+          base64 -d /tmp/v123.docs.b64 > /tmp/v123.docs.tar.gz
+          tar -xzf /tmp/v123.docs.tar.gz -C .
+
+          rm -rf .publish_v123
+          rm -f .github/workflows/publish-v123.yml
+
+      - name: Commit finalized v1.2.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish KK_DragCoordinateLoadBridge v1.2.3"
+          git push
