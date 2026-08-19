@@ -1,81 +1,67 @@
-# KK Drag Coordinate Load Bridge v1.2.1
+# KK Drag Coordinate Load Bridge v1.2.3
 
-v1.2.1 在 v1.2.0 Maker 支持基础上做一次“拒绝过度防御”修订。Studio 工作流保持不变；Maker 删除了不必要的 Transform 层级猜测、枚举数值硬锁和 Harmony patch-table gate，并调整为先进入原生 Coordinate Load UI、再等待 CLO UI 就绪。
+把 DragAndDrop 的“拖入 Coordinate / 服装卡”动作接入 Coordinate Load Option（CLO）的选择性加载流程。
 
-## v1.2.1 相对 v1.2.0
+支持：
 
-- `System` 主菜单直接使用已审计的游戏语义 index `6`，不再猜 `Transform` 父子层级；
-- `CoordinateLoad` 通过枚举名匹配，不再要求底层整数必须等于 `3`；
-- Maker 不再检查 CLO 的 Harmony patch table，改看实际 `panel / CustomFileWindow / coordinatePath` 运行状态；
-- 先通过原生 Toggle 打开 `System -> Coordinate Load`，再检查 CLO panel 是否就绪；
-- 保留 fail-closed、busy、last-drop-wins、`panel.IsActive()`、Load Button LateUpdate 等真正必要的保护。
+- CharaStudio
+- Koikatu Maker / 角色编辑器
 
-详见 `SELF_REVIEW_1.2.1.md`。
+核心原则：**Bridge 只负责桥接拖卡入口，不重新实现换装，不修改 DragAndDrop/CLO 原 DLL，也不为了理论风险增加大型状态机。**
 
-## 目标工作流
+## v1.2.3 修复重点
 
-### CharaStudio
+v1.2.3 延续 v1.2.2 的 Maker 修复，并继续处理首次进入 Coordinate Load 时的 UI 生命周期问题：
 
-保持 v1.1.6 的现有行为：
+1. CLO 的真实 `CoordinateLoadBtn` 必须已经 `activeInHierarchy == true`，Bridge 才会调用它；如果原生 Coordinate Load 层级还没真正激活，只做现有的短 deferred retry。
+2. 当 CLO `coordinatePath` 已经离开 Bridge 的拖入路径时，Bridge 立即释放 ownership，并取消自己强制保持的 Load 按钮状态，之后交回 Maker 原生 UI 更新。
+3. 删除 v1.2.2 中没有直接功能价值的 Maker `CanvasGroup alpha/interactable/blocksRaycasts` readiness gate，避免把 UI 外观/布局状态当作功能契约。
 
-1. 选中角色；
-2. 从资源管理器拖入单张 Coordinate 卡；
-3. Bridge 阻止 DragAndDrop 立即整套换装；
-4. 自动进入 `anim -> 衣服/Costume`；
-5. 自动让 Coordinate Load Option（CLO）解析拖入卡并显示选择面板；
-6. 用户勾选部位后点击 Studio 原 Load 按钮；
-7. CLO 自己执行选择性加载。
+## CharaStudio 工作流
 
-### Koikatu Maker
+1. 在 Studio 中选中角色。
+2. 从资源管理器拖入一张 Coordinate / 服装卡。
+3. Bridge 阻止 DragAndDrop 立即整套换装。
+4. 自动进入 `anim -> 衣服 / Costume`。
+5. CLO 打开“显示选择”。
+6. 用户勾选要加载的部位。
+7. 点击 Studio 原 Load。
+8. CLO 自己执行选择性加载。
 
-1. 进入恋活角色编辑器；
-2. 直接拖入外部 Coordinate 卡；
-3. Bridge 阻止 `DragAndDrop.MakerHandler.Coordinate_Load(...)` 的立即完整换装；
-4. Bridge 通过 Maker **真实的 Toggle UI 链**切换到：
-   - 主菜单 `System`；
-   - `Coordinate Load`；
-5. 不把外部文件复制进 `UserData`，也不向 Maker 的真实 `listCtrl` 注入项目；
-6. 用一个只在 CLO 同步解析调用期间存在的 detached proxy，把拖入文件路径交给 CLO Maker 分支；
-7. 自动显示 CLO “显示选择”面板；
-8. Bridge 维持 Maker 原 Load 按钮可用；
-9. 用户点击 Maker 原 Load 按钮，由 CLO 自己执行选择性加载。
+Studio 分支保持 v1.1.6 以来的工作流，不因 Maker 支持重新实现。
+
+## Koikatu Maker 工作流
+
+1. 进入角色编辑器。
+2. 从资源管理器拖入一张 Coordinate 卡。
+3. Bridge suppress `DragAndDrop.MakerHandler.Coordinate_Load(...)` 原来的立即完整换装。
+4. 通过 Maker 原生 Toggle 链进入 `System -> Coordinate Load`。
+5. detached proxy 只在 CLO 同步解析期间提供外部拖入路径，不修改 Maker 真实 Coordinate 列表。
+6. 等待 CLO 自己的“显示选择”按钮真正处于活动层级后，调用其原 `Button.onClick.Invoke()`。
+7. 用户勾选服装 / 饰品部位。
+8. 点击 Maker 原 Load。
+9. CLO 自己执行选择性加载。
 
 ## Maker 实现边界
 
-v1.2.1 不重新实现换装，也不直接写角色服装/饰品数组。
+Bridge 不会：
 
-Maker 分支只 Patch 一个入口：
-
-```text
-DragAndDrop.MakerHandler.Coordinate_Load(string, POINT)
-```
-
-Studio 分支仍然只 Patch：
-
-```text
-DragAndDrop.StudioHandler.Coordinate_Load(List<string>, POINT)
-```
-
-由于 CharaStudio 与 Koikatu 是不同进程，同一运行实例只会安装其中一个 Patch。源码中也只有一个 `HarmonyInstance.Patch(...)` 调用点。
-
-Bridge **不会**：
-
-- Patch CLO 的方法；
-- Patch `CustomCoordinateFile` / `CustomChangeMainMenu` / `CustomChangeSystemMenu`；
+- 把外部 Coordinate 复制进 `UserData`；
+- 向 Maker 真实 `listCtrl` 注入项目；
+- Patch CLO；
+- Patch `CustomCoordinateFile` / `CustomFileWindow` / `ChaControl`；
 - 创建第二套选择 UI；
-- 修改 DragAndDrop/CLO 原 DLL；
-- 自动复制拖入 Coordinate 到 `UserData`；
-- 修改 Maker 真实 Coordinate 文件列表。
+- 自己写角色的 clothes/accessory 数据；
+- 锁死依赖 DLL 的 SHA/MVID；
+- 排斥其他 Harmony owner。
 
-## 为什么 Maker Load 按钮需要持续维持
+## 为什么需要维持原 Load 按钮
 
-实际 `Assembly-CSharp.dll` 中，`CustomCoordinateFile` 每帧会根据真实 `listCtrl` 是否存在选中项目重算 `btnCoordeLoadLoad.interactable`。
+Maker 原 `CustomCoordinateFile` 会根据真实 `listCtrl` 是否有选中项目持续重算 `btnCoordeLoadLoad.interactable`。外部拖入卡不进入真实列表，所以 Bridge 只在当前 pending 拖入路径仍归自己所有、CLO selective panel 仍有效时，于 `LateUpdate()` 维持**原生 Load 按钮**可用。
 
-外部拖入卡没有被加入真实列表，因此如果 Bridge 只把按钮启用一次，下一帧就会再次被 Maker 禁用。
+这不会替代用户点击 Load。
 
-所以 v1.2.1 与 Studio 分支相同，在 `LateUpdate()` 中只维护**现有原生 Load 按钮的 interactable 状态**；它不创建新按钮，也不代替用户点击 Load。
-
-## Maker 多文件拖入
+## 多文件拖入
 
 Maker 的 DragAndDrop 接口是单文件：
 
@@ -83,84 +69,58 @@ Maker 的 DragAndDrop 接口是单文件：
 Coordinate_Load(string, POINT)
 ```
 
-因此一次拖入多张卡时会表现为连续多次调用。v1.2.1 采用 **last drop wins**：
-
-- 所有有效 Coordinate 调用都阻止立即完整换装；
-- 后到的卡覆盖前一张 pending 路径；
-- 最终 CLO 面板对应最后一张拖入卡。
+同一批连续拖入多张卡时采用 **last drop wins**：后到路径覆盖旧 pending，原完整换装仍全部 suppress。
 
 ## 构建
 
-运行 `build.bat`，输入或拖入 Koikatu 游戏根目录。
-
-脚本会自动选择：
+运行：
 
 ```text
-Koikatu_Data\Managed
+build.bat
 ```
 
-如果不存在，则尝试：
+输入或拖入 Koikatu 游戏根目录。脚本使用本机 .NET Framework `csc.exe` 与游戏 NET35/Mono 依赖：
 
 ```text
-CharaStudio_Data\Managed
+/nostdlib+
+/langversion:4
 ```
 
-构建仍使用本机 .NET Framework `csc.exe`、游戏自带 `mscorlib/System/UnityEngine`、BepInEx 与 0Harmony：
+不使用 NuGet，也不调用 `dotnet restore`。
 
-- 不使用 NuGet；
-- 不使用 `dotnet restore`；
-- `/nostdlib+`；
-- `/langversion:4`。
-
-成功后自动安装到：
+成功后安装到：
 
 ```text
 BepInEx\plugins\KK_DragCoordinateLoadBridge\KK_DragCoordinateLoadBridge.dll
 ```
 
-## 首次 Maker 实机测试
+## 诊断
 
-建议只用一张已知可正常加载的 Coordinate 卡测试：
-
-1. 启动 `Koikatu`；
-2. 进入角色编辑器；
-3. 确认 F1 ConfigurationManager 中存在 `KK Drag Coordinate Load Bridge`；
-4. 查看：
-   - `Runtime status` 应为 `ENABLED - Koikatu Maker drag hook installed`；
-   - `Observed coordinate drops` 初始为 0；
-5. 从资源管理器拖入一张 Coordinate；
-6. 预期自动进入 `System -> Coordinate Load`；
-7. 预期 CLO 选择面板自动显示；
-8. `Observed coordinate drops` 增加；
-9. `Last action` 应出现 `PREPARED - Maker CLO selection open; Load armed`；
-10. 勾选部位并点击 Maker 原 Load 按钮。
-
-如果失败，请提供：
+运行时日志：
 
 ```text
 BepInEx\config\KK_DragCoordinateLoadBridge.runtime.log
 ```
 
-以及 F1 中：
+Maker 正常拖卡应看到类似：
 
 ```text
-Runtime status
-Observed coordinate drops
-Last action
+Maker coordinate drop intercepted; original DragAndDrop whole-coordinate load will be suppressed: ...
+[MakerAdapter] Invoked CLO Maker's real Show Selection button.
+[MakerAdapter] Prepared dropped coordinate and armed Maker Coordinate Load button: ...
 ```
 
-## 当前验证级别
+## 当前自检
 
-本源码已经对用户提供的实际二进制做 Maker 专项静态/IL 审查：
+```text
+47 / 47 PASS
+```
 
-- `Assembly-CSharp.dll`
-- `DragAndDrop.Koikatu.dll`
-- `KK_CoordinateLoadOption.dll`
+这是源码静态/结构检查，不代表本仓库提交环境已经运行 Windows `csc.exe` 或 Koikatu/CharaStudio 实机。
 
-并通过源码静态自检。
+相关资料：
 
-当前生成环境没有 Windows `csc.exe`、Koikatu/CharaStudio Unity 运行时，因此：
-
-> **不声称 v1.2.1 已在本环境完成编译或 Maker 实机运行。**
-
-实际 Maker UI 的序列化对象引用、其他第三方插件对 Toggle/Load Button 的修改，仍必须由你的实际插件环境最终验证。
+- `SELF_REVIEW_1.2.3.md`
+- `RUNTIME_FIX_1.2.3.md`
+- `SELF_CHECK_RESULT.txt`
+- `MAKER_BINARY_AUDIT.md`（实际二进制审计基线；v1.2.3 未改变其核心二进制契约）
