@@ -23,7 +23,7 @@ namespace KKPEHeightLockStandalone
     {
         public const string PluginGuid = "com.kkpeheightlock.standalone";
         public const string PluginName = "KKPE Height & Body Lock Standalone";
-        public const string PluginVersion = "1.2.3";
+        public const string PluginVersion = "1.2.4";
         public const string KKPEPluginGuid = "com.joan6694.kkplugins.kkpe";
 
         internal const string HeightBoneName = "cf_n_height";
@@ -153,13 +153,16 @@ namespace KKPEHeightLockStandalone
             // ConfigurationManager can change this config entry directly.
             if (_heightLockEnabled.Value != _lastHeightSetting)
             {
-                if (!_heightLockEnabled.Value)
-                    HeightLockPatch.ClearAll();
-
                 _lastHeightSetting = _heightLockEnabled.Value;
+
+                if (!_heightLockEnabled.Value)
+                    HeightLockPatch.ReleaseAllAndRefresh();
+
                 SetResult(
                     "Height Lock " +
-                    (_heightLockEnabled.Value ? "ON" : "OFF"),
+                    (_heightLockEnabled.Value
+                        ? "ON"
+                        : "OFF - current card height restored"),
                     false);
             }
 
@@ -209,15 +212,17 @@ namespace KKPEHeightLockStandalone
         {
             bool next = !_heightLockEnabled.Value;
 
-            if (!next)
-                HeightLockPatch.ClearAll();
-
             _heightLockEnabled.Value = next;
             _lastHeightSetting = next;
 
+            if (!next)
+                HeightLockPatch.ReleaseAllAndRefresh();
+
             SetResult(
                 source + ": Height Lock " +
-                (next ? "ON - current height will be captured" : "OFF"),
+                (next
+                    ? "ON - current height will be captured"
+                    : "OFF - current card height restored"),
                 false);
         }
 
@@ -254,7 +259,7 @@ namespace KKPEHeightLockStandalone
                     0x4B50484C,
                     _windowRect,
                     DrawWindow,
-                    "KKPE Height / Body Lock v1.2.3");
+                    "KKPE Height / Body Lock v1.2.4");
             }
 
             if (_showToast.Value &&
@@ -511,9 +516,80 @@ namespace KKPEHeightLockStandalone
             return state;
         }
 
-        internal static void ClearAll()
+        internal static void ReleaseAllAndRefresh()
         {
+            Studio.OCIChar[] characters =
+                new Studio.OCIChar[States.Count];
+
+            States.Keys.CopyTo(characters, 0);
+
+            for (int i = 0;
+                 i < characters.Length;
+                 i++)
+            {
+                RefreshCurrentCardHeight(characters[i]);
+            }
+
             States.Clear();
+        }
+
+        internal static void RefreshCurrentCardHeight(
+            Studio.OCIChar character)
+        {
+            if (character == null ||
+                character.charInfo == null)
+            {
+                return;
+            }
+
+            try
+            {
+                character.charInfo
+                    .UpdateShapeBodyValueFromCustomInfo();
+
+                character.charInfo
+                    .UpdateShapeBody();
+
+                SyncFemaleHeightParameters(character);
+            }
+            catch (Exception ex)
+            {
+                KKPEHeightLockStandalonePlugin.ReportError(
+                    "Height Lock release/refresh error.",
+                    ex);
+            }
+        }
+
+        internal static void SyncFemaleHeightParameters(
+            Studio.OCIChar character)
+        {
+            if (!(character is Studio.OCICharFemale) ||
+                character.charInfo == null ||
+                character.optionItemCtrl == null)
+            {
+                return;
+            }
+
+            ChaFileBody body =
+                character.charInfo.fileBody;
+
+            if (body == null ||
+                body.shapeValueBody == null ||
+                body.shapeValueBody.Length == 0)
+            {
+                return;
+            }
+
+            float height =
+                body.shapeValueBody[0];
+
+            character.optionItemCtrl.height =
+                height;
+
+            character.charInfo
+                .setAnimatorParamFloat(
+                    "height",
+                    height);
         }
 
         internal static void ClearForCharacter(
@@ -675,6 +751,9 @@ namespace KKPEHeightLockStandalone
                         __instance.charInfo
                             .UpdateShapeBody();
 
+                        HeightLockPatch
+                            .SyncFemaleHeightParameters(__instance);
+
                         if (__state.Mode ==
                             PreserveBodyMode.AllBody)
                         {
@@ -686,25 +765,25 @@ namespace KKPEHeightLockStandalone
                         // base.ChangeChara. We restored shape after that point,
                         // so repeat the same public synchronization using the
                         // restored body values.
-                        if (__instance is Studio.OCICharFemale)
+                        if (__instance is Studio.OCICharFemale &&
+                            __instance.isAnimeMotion &&
+                            body.shapeValueBody != null &&
+                            body.shapeValueBody.Length > 1)
                         {
-                            __instance.optionItemCtrl.height =
-                                body.shapeValueBody[0];
-
                             __instance.charInfo
                                 .setAnimatorParamFloat(
-                                    "height",
-                                    body.shapeValueBody[0]);
-
-                            if (__instance.isAnimeMotion)
-                            {
-                                __instance.charInfo
-                                    .setAnimatorParamFloat(
-                                        "breast",
-                                        body.shapeValueBody[1]);
-                            }
+                                    "breast",
+                                    body.shapeValueBody[1]);
                         }
                     }
+                }
+                else if (KKPEHeightLockStandalonePlugin.BodyMode ==
+                         PreserveBodyMode.Off)
+                {
+                    // With body preservation off, make the new card's
+                    // shapeValueBody the authoritative height source.
+                    HeightLockPatch
+                        .RefreshCurrentCardHeight(__instance);
                 }
 
             }

@@ -1,6 +1,6 @@
 # KKPEHeightLockStandalone 依赖版本
 
-适用于：**KKPEHeightLockStandalone v1.2.3 SOURCE-PROVEN**
+适用于：**KKPEHeightLockStandalone v1.2.4 SOURCE-PROVEN**
 
 版本基线核对日期：**2026-08-20**。
 
@@ -18,13 +18,16 @@ KKPE 为硬依赖，但本插件源码没有声明最低版本号。因此：
 - BepInEx 元数据没有写死 `>= 2.21.5` 或 `== 2.21.5`；
 - **KKPE 2.21.5** 是本仓库当前推荐兼容 / 排错基线。
 
-## v1.2.3 对 KKPE 的实际使用范围
+## v1.2.4 对 KKPE 的实际使用范围
 
 当前 Height Lock 不再访问或修改 KKPE `_dirtyBones`，也不再调用 `SetBoneScale`、`SetBoneNotDirtyIf` 或维护 scale correction 所有权。
 
 它只反射读取 KKPE `BonesEditor` 的私有 `_target` 字段，用来取得当前 `GenericOCITarget` / `OCIChar`，然后在 `BonesEditor.ApplyBoneManualCorrection` 的 Harmony Postfix 中把已捕获的 `cf_n_height.localScale` 写回。
 
-因此与 v1.2.1 相比，v1.2.3 对 KKPE 内部结构的耦合明显降低。
+因此与 v1.2.1 相比，v1.2.4 对 KKPE 内部结构的耦合明显降低。
+
+关闭身高锁时，v1.2.4 使用 Koikatu 的公开身体更新 API
+重新计算当前人物卡的身高，再清除插件缓存；不写入 KKPE 的 dirty 状态。
 
 ## 为什么仍推荐 KKPE 2.21.5
 

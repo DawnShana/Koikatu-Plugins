@@ -1,4 +1,4 @@
-# KKPEHeightLockStandalone v1.2.3 SOURCE-PROVEN
+# KKPEHeightLockStandalone v1.2.4 SOURCE-PROVEN
 
 本版不是等待运行反馈后再修，而是按 Koikatu / KKPE 源码执行链路修正。
 
@@ -23,11 +23,21 @@
 
 - 第一次遇到角色：记录当前 `cf_n_height.localScale`；
 - 后续每次 KKPE bone correction 完成后：写回记录值；
-- 关闭：清空本插件缓存；
+- 关闭：按当前人物卡参数刷新已捕获角色的身高，再清空本插件缓存；
 - 再开启：重新捕获当前身高；
 - 不访问 `_dirtyBones`；
 - 不创建/Reset KKPE scale correction；
 - 不做所有权/epsilon/LastValue 推断。
+
+### v1.2.4 的关闭修正
+
+关闭身高锁时，插件会先把当前人物的 `shapeValueBody` 重新同步到
+`cf_n_height`，再清理锁定缓存。因此关闭后当前人物立即恢复人物卡身高，
+不会留下最后一次锁定写入的 Transform 缩放。
+
+当体型保留模式为 `Off` 时，后续 `ChangeChara` 完成后也会立即执行同一套
+身体更新，确保新人物卡使用自己的身高参数。`ShapeOnly` / `AllBody` 仍按
+用户选择保留旧体型。
 
 ## 体型保留
 

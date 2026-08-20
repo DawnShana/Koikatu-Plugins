@@ -1,4 +1,4 @@
-KKPEHeightLockStandalone v1.2.3 SOURCE-PROVEN AUDIT
+KKPEHeightLockStandalone v1.2.4 SOURCE-PROVEN AUDIT
 =====================================================
 
 Verdict: PASS
@@ -15,11 +15,12 @@ Source facts used:
      updateShapeBody=true; public UpdateShapeBody performs sibBody.Update().
 
 Checks:
-  [PASS] version 1.2.3
+  [PASS] version 1.2.4
   [PASS] exactly 2 Harmony patch classes
   [PASS] height = ApplyBoneManualCorrection Postfix
   [PASS] height captures current cf_n_height scale
-  [PASS] height OFF only clears plugin cache
+  [PASS] height OFF refreshes current card height before clearing cache
+  [PASS] body Off replacement refreshes new card height
   [PASS] height has no KKPE dirty/ownership machinery
   [PASS] only one KKPE private FieldInfo
   [PASS] body patches outer female ChangeChara
