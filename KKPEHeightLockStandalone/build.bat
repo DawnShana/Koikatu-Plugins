@@ -1,9 +1,9 @@
-﻿@echo off
+@echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 echo ======================================================
-echo   KKPE Height/Body Lock v1.2.1 - NET35 Build
+echo   KKPE Height/Body Lock v1.2.3 - NET35 Build
 echo ======================================================
 echo.
 echo IMPORTANT:

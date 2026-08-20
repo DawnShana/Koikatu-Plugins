@@ -8,7 +8,7 @@
 |---|---:|---|---|
 | [KK_TimelineStateCleaner](./KK_TimelineStateCleaner/) | 1.3.1 | CharaStudio | 一键取消/恢复指定 Timeline 相机与服装状态轨道勾选 |
 | [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程 |
-| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.1 | CharaStudio | 锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型 |
+| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.3 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型 |
 
 ## 直接依赖版本
 
@@ -19,7 +19,7 @@
 | KK_TimelineStateCleaner 1.3.1 | Timeline | `com.joan6694.illusionplugins.timeline` | **HardDependency** | **1.5.6** | 当前维护源码推荐基线；Cleaner 未在 `BepInDependency` 中声明最低版本 |
 | KK_DragCoordinateLoadBridge 1.2.3 | DragAndDrop | `keelhauled.draganddrop` | SoftDependency（功能实际必需） | **1.3.1** | Bridge 自带二进制审计明确记录的目标版本 |
 | KK_DragCoordinateLoadBridge 1.2.3 | Coordinate Load Option (CLO) | `com.jim60105.kk.coordinateloadoption` | SoftDependency（功能实际必需） | **21.12.25.1** | Bridge 自带二进制审计明确记录；内部 release 为 `1.1.8.2` |
-| KKPEHeightLockStandalone 1.2.1 | KKPE | `com.joan6694.kkplugins.kkpe` | **HardDependency** | **2.21.5** | 当前维护源码推荐基线；本插件未声明最低版本，但 Height Lock 会访问 KKPE 部分内部结构 |
+| KKPEHeightLockStandalone 1.2.3 | KKPE | `com.joan6694.kkplugins.kkpe` | **HardDependency** | **2.21.5** | 当前维护源码推荐基线；Height Lock 仅反射读取 KKPE `BonesEditor._target` 以取得当前角色 |
 
 共同运行环境：**BepInEx 5.x**。`0Harmony.dll` 随 BepInEx 环境提供，Bridge 与 KKPEHeightLockStandalone 会使用它，但本仓库不单独锁定 Harmony 版本。
 

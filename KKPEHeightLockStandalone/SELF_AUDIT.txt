@@ -1,44 +1,47 @@
-﻿KKPEHeightLockStandalone v1.2.1 SIMPLIFIED - FINAL SELF AUDIT
-================================================================
+KKPEHeightLockStandalone v1.2.3 SOURCE-PROVEN AUDIT
+=====================================================
 
-Overall: PASS
+Verdict: PASS
 
-Principle: no speculative/over-defensive ownership logic.
-Reflection only for KKPE private members; public APIs are used directly.
+No runtime-feedback assumption was used for the core judgment.
+
+Source facts used:
+  1. Koikatu Manager.Character executionOrder = 0.
+  2. RootMotion.FinalIK.IKExecutionOrder executionOrder = 9996.
+  3. KKPE calls BonesEditor.ApplyBoneManualCorrection from its
+     IKExecutionOrder post-LateUpdate path.
+  4. ShapeBodyInfoFemale.Update writes cf_n_height.localScale.
+  5. UpdateShapeBodyValueFromCustomInfo updates sibBody and marks
+     updateShapeBody=true; public UpdateShapeBody performs sibBody.Update().
 
 Checks:
-  [PASS] lexical closes
-  [PASS] braces balanced
-  [PASS] parentheses balanced
-  [PASS] brackets balanced
-  [PASS] C#4 no interpolated string
-  [PASS] C#4 no null conditional
-  [PASS] C#4 no nameof
-  [PASS] C#4 no async/await
-  [PASS] 2 Harmony patches only
-  [PASS] KKPE hard dependency GUID
-  [PASS] CharaStudio process filter
-  [PASS] no nested TypeByName string
-  [PASS] TransformData derived from _dirtyBones
-  [PASS] GenericOCITarget direct
-  [PASS] EditableValue direct
-  [PASS] ChaFileBody direct
-  [PASS] no typeBone
-  [PASS] no LastValue
-  [PASS] no epsilon
-  [PASS] true unlock Reset
-  [PASS] true unlock KKPE cleanup
-  [PASS] preexisting scale not overwritten
-  [PASS] height state cache
-  [PASS] ChangeChara releases old height state
-  [PASS] body refresh public API
-  [PASS] bust refresh public API
-  [PASS] no VR
-  [PASS] no KKAPI
-  [PASS] no Timeline API
-  [PASS] no MaterialEditor
+  [PASS] version 1.2.3
+  [PASS] exactly 2 Harmony patch classes
+  [PASS] height = ApplyBoneManualCorrection Postfix
+  [PASS] height captures current cf_n_height scale
+  [PASS] height OFF only clears plugin cache
+  [PASS] height has no KKPE dirty/ownership machinery
+  [PASS] only one KKPE private FieldInfo
+  [PASS] body patches outer female ChangeChara
+  [PASS] body patches outer male ChangeChara
+  [PASS] body does not patch base OCIChar.ChangeChara
+  [PASS] Prefix clears old height state exactly once
+  [PASS] Postfix has no redundant height-cache clear
+  [PASS] body restores shapeValueBody
+  [PASS] body applies restored shape synchronously
+  [PASS] AllBody restores bust fields
+  [PASS] female option height re-synced
+  [PASS] female animator height re-synced
+  [PASS] no coroutine/retry
+  [PASS] no SceneLoad hook
+  [PASS] no typeBone compatibility
   [PASS] no direct file IO
+  [PASS] C#4 syntax subset
+  [PASS] lexical closes
+  [PASS] brace balance
+  [PASS] paren balance
+  [PASS] bracket balance
   [PASS] build /noconfig
   [PASS] build /nostdlib+
   [PASS] build /langversion:4
-  [PASS] build no auto-install variable
+  [PASS] build no automatic install

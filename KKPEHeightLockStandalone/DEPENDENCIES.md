@@ -1,6 +1,6 @@
 # KKPEHeightLockStandalone 依赖版本
 
-适用于：**KKPEHeightLockStandalone v1.2.1 SIMPLIFIED**
+适用于：**KKPEHeightLockStandalone v1.2.3 SOURCE-PROVEN**
 
 版本基线核对日期：**2026-08-20**。
 
@@ -18,30 +18,45 @@ KKPE 为硬依赖，但本插件源码没有声明最低版本号。因此：
 - BepInEx 元数据没有写死 `>= 2.21.5` 或 `== 2.21.5`；
 - **KKPE 2.21.5** 是本仓库当前推荐兼容 / 排错基线。
 
-## 为什么 KKPE 版本比 Timeline 更需要注意
+## v1.2.3 对 KKPE 的实际使用范围
 
-Height Lock 为了管理 `cf_n_height` 的 KKPE scale correction，除了使用 KKPE 公开 API，还会反射访问实现该功能所必需的部分内部成员。
+当前 Height Lock 不再访问或修改 KKPE `_dirtyBones`，也不再调用 `SetBoneScale`、`SetBoneNotDirtyIf` 或维护 scale correction 所有权。
 
-因此建议：
+它只反射读取 KKPE `BonesEditor` 的私有 `_target` 字段，用来取得当前 `GenericOCITarget` / `OCIChar`，然后在 `BonesEditor.ApplyBoneManualCorrection` 的 Harmony Postfix 中把已捕获的 `cf_n_height.localScale` 写回。
 
-1. 优先使用 **KKPE 2.21.5**；
-2. 更新 KKPE 后如果身高锁失效，先检查 KKPE 内部结构是否发生变化；
-3. 本插件找不到必须的 KKPE 内部成员时，会尽量关闭 Height Lock，而不是继续写入未知结构；Body Preserve 仍可独立工作。
+因此与 v1.2.1 相比，v1.2.3 对 KKPE 内部结构的耦合明显降低。
 
-原始 v1.2.1 SIMPLIFIED 源码包未携带编译时使用的 `KKPE.dll`，所以 2.21.5 是**当前维护版推荐基线**，不是虚构的“原编译机精确版本”。
+## 为什么仍推荐 KKPE 2.21.5
 
-## 为什么推荐 KKPE 2.21.5
-
-截至本说明核对日期，`IllusionMods/HSPlugins` 当前维护源码中的 KKPE 版本常量为：
+截至本说明核对日期，`IllusionMods/HSPlugins` 当前维护源码中的 KKPE / PoseEditor 版本常量为：
 
 ```text
-KKPE / PoseEditor Version = 2.21.5
+2.21.5
 ```
+
+该版本也是本次源码执行链审计的参考基线，包括：
+
+- `BonesEditor.ApplyBoneManualCorrection()`；
+- `CharaPoseController` 的 IKExecutionOrder post-LateUpdate 调用链；
+- `GenericOCITarget` 角色目标结构。
+
+## Koikatu / CharaStudio 侧
+
+体型保留直接使用游戏公开 API：
+
+- `ChaFileBody.shapeValueBody`
+- `ChaFileBody.bustSoftness`
+- `ChaFileBody.bustWeight`
+- `ChaControl.UpdateShapeBodyValueFromCustomInfo()`
+- `ChaControl.UpdateShapeBody()`
+- `ChaControl.UpdateBustSoftnessAndGravity()`
+
+不通过反射访问这些公开体型 API。
 
 ## KKPE 自身的依赖
 
 当前维护版 KKPE 自身还依赖 ExtensibleSave、KKAPI 等组件。这些属于 KKPE 的**传递依赖**，建议直接按 HSPlugins / 对应整合包完整安装。
 
-`KKPEHeightLockStandalone` 本身并不直接调用 KKAPI，也不依赖 VR、Timeline API 或 MaterialEditor。
+`KKPEHeightLockStandalone` 本身不直接调用 KKAPI，也不依赖 VR、Timeline API 或 MaterialEditor。
 
 维护来源：<https://github.com/IllusionMods/HSPlugins>

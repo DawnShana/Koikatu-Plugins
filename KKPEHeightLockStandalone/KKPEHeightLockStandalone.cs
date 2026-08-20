@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using BepInEx;
@@ -24,7 +23,7 @@ namespace KKPEHeightLockStandalone
     {
         public const string PluginGuid = "com.kkpeheightlock.standalone";
         public const string PluginName = "KKPE Height & Body Lock Standalone";
-        public const string PluginVersion = "1.2.1";
+        public const string PluginVersion = "1.2.3";
         public const string KKPEPluginGuid = "com.joan6694.kkplugins.kkpe";
 
         internal const string HeightBoneName = "cf_n_height";
@@ -32,24 +31,32 @@ namespace KKPEHeightLockStandalone
 
         private ConfigEntry<bool> _heightLockEnabled;
         private ConfigEntry<PreserveBodyMode> _bodyMode;
+
         private ConfigEntry<KeyCode> _heightToggleKey;
         private ConfigEntry<KeyCode> _bodyModeKey;
         private ConfigEntry<KeyCode> _windowToggleKey;
-        private ConfigEntry<bool> _hotkeyRequireCtrl;
-        private ConfigEntry<bool> _hotkeyRequireShift;
+        private ConfigEntry<bool> _requireCtrl;
+        private ConfigEntry<bool> _requireShift;
+
         private ConfigEntry<bool> _showWindowAtStartup;
         private ConfigEntry<bool> _showToast;
 
-        private Rect _windowRect = new Rect(20f, 180f, 390f, 270f);
+        private Rect _windowRect = new Rect(20f, 180f, 410f, 290f);
         private bool _windowVisible;
         private bool _lastHeightSetting;
+
         private string _lastResult = "Ready";
         private string _toastText = string.Empty;
         private float _toastUntil;
 
         internal static bool HeightLockEnabled
         {
-            get { return Instance != null && Instance._heightLockEnabled != null && Instance._heightLockEnabled.Value; }
+            get
+            {
+                return Instance != null &&
+                       Instance._heightLockEnabled != null &&
+                       Instance._heightLockEnabled.Value;
+            }
         }
 
         internal static PreserveBodyMode BodyMode
@@ -67,71 +74,93 @@ namespace KKPEHeightLockStandalone
             Instance = this;
 
             _heightLockEnabled = Config.Bind(
-                "Lock", "HeightLockEnabled", true,
-                "Lock cf_n_height so animations/poses cannot overwrite character height.");
+                "Lock",
+                "HeightLockEnabled",
+                true,
+                "Lock the current cf_n_height scale. Turn off, adjust height, then turn on again to capture a new height.");
 
             _bodyMode = Config.Bind(
-                "Lock", "BodyPreserveMode", PreserveBodyMode.ShapeOnly,
-                "Body values preserved when Studio replaces a character: Off / ShapeOnly / AllBody.");
+                "Lock",
+                "BodyPreserveMode",
+                PreserveBodyMode.ShapeOnly,
+                "Body values preserved on the NEXT character replacement: Off / ShapeOnly / AllBody.");
 
             _heightToggleKey = Config.Bind(
-                "Hotkey", "HeightToggleKey", KeyCode.H,
+                "Hotkey",
+                "HeightToggleKey",
+                KeyCode.H,
                 "Main key used with Ctrl/Shift to toggle height lock.");
 
             _bodyModeKey = Config.Bind(
-                "Hotkey", "BodyModeKey", KeyCode.B,
+                "Hotkey",
+                "BodyModeKey",
+                KeyCode.B,
                 "Main key used with Ctrl/Shift to cycle body preserve mode.");
 
-            // Timeline Cleaner uses Ctrl+Shift+F8, so this tool uses F9.
             _windowToggleKey = Config.Bind(
-                "Hotkey", "ToggleWindowKey", KeyCode.F9,
+                "Hotkey",
+                "ToggleWindowKey",
+                KeyCode.F9,
                 "Main key used with Ctrl/Shift to show/hide this window.");
 
-            _hotkeyRequireCtrl = Config.Bind(
-                "Hotkey", "RequireCtrl", true,
-                "Require either LeftCtrl or RightCtrl.");
+            _requireCtrl = Config.Bind(
+                "Hotkey",
+                "RequireCtrl",
+                true,
+                "Require LeftCtrl or RightCtrl.");
 
-            _hotkeyRequireShift = Config.Bind(
-                "Hotkey", "RequireShift", true,
-                "Require either LeftShift or RightShift.");
+            _requireShift = Config.Bind(
+                "Hotkey",
+                "RequireShift",
+                true,
+                "Require LeftShift or RightShift.");
 
             _showWindowAtStartup = Config.Bind(
-                "General", "ShowWindow", true,
-                "Show the standalone control window when CharaStudio starts.");
+                "General",
+                "ShowWindow",
+                true,
+                "Show the control window when CharaStudio starts.");
 
             _showToast = Config.Bind(
-                "General", "ShowHotkeyToast", true,
+                "General",
+                "ShowHotkeyToast",
+                true,
                 "Show a short on-screen result after an action.");
 
             if (!HeightLockPatch.Initialize())
             {
                 _heightLockEnabled.Value = false;
-                Logger.LogError("KKPE internals required by Height Lock were not found. Body Preserve remains available.");
+                Logger.LogError("Height Lock initialization failed: KKPE _target field was not found.");
             }
 
             _lastHeightSetting = _heightLockEnabled.Value;
             _windowVisible = _showWindowAtStartup.Value;
 
-            new Harmony(PluginGuid).PatchAll(typeof(KKPEHeightLockStandalonePlugin).Assembly);
+            new Harmony(PluginGuid)
+                .PatchAll(typeof(KKPEHeightLockStandalonePlugin).Assembly);
 
             _lastResult = BuildStateText();
+
             Logger.LogInfo(
                 PluginName + " " + PluginVersion +
-                " loaded. Height: Ctrl+Shift+" + _heightToggleKey.Value +
-                "; Body: Ctrl+Shift+" + _bodyModeKey.Value +
-                "; Window: Ctrl+Shift+" + _windowToggleKey.Value);
+                " loaded. Height=Ctrl+Shift+" + _heightToggleKey.Value +
+                ", Body=Ctrl+Shift+" + _bodyModeKey.Value +
+                ", Window=Ctrl+Shift+" + _windowToggleKey.Value);
         }
 
         private void Update()
         {
-            // Needed only for live changes made through BepInEx ConfigurationManager.
+            // ConfigurationManager can change this config entry directly.
             if (_heightLockEnabled.Value != _lastHeightSetting)
             {
                 if (!_heightLockEnabled.Value)
-                    HeightLockPatch.ReleaseAll();
+                    HeightLockPatch.ClearAll();
 
                 _lastHeightSetting = _heightLockEnabled.Value;
-                SetResult("Height Lock: " + (_heightLockEnabled.Value ? "ON" : "OFF"), false);
+                SetResult(
+                    "Height Lock " +
+                    (_heightLockEnabled.Value ? "ON" : "OFF"),
+                    false);
             }
 
             if (IsModifiedKeyDown(_heightToggleKey))
@@ -143,22 +172,34 @@ namespace KKPEHeightLockStandalone
             if (IsModifiedKeyDown(_windowToggleKey))
             {
                 _windowVisible = !_windowVisible;
-                SetResult("Window " + (_windowVisible ? "shown" : "hidden"), false);
+                SetResult(
+                    "Window " +
+                    (_windowVisible ? "shown" : "hidden"),
+                    false);
             }
         }
 
         private bool IsModifiedKeyDown(ConfigEntry<KeyCode> keyEntry)
         {
-            if (keyEntry == null || keyEntry.Value == KeyCode.None || !Input.GetKeyDown(keyEntry.Value))
+            if (keyEntry == null ||
+                keyEntry.Value == KeyCode.None ||
+                !Input.GetKeyDown(keyEntry.Value))
+            {
+                return false;
+            }
+
+            bool ctrlDown =
+                Input.GetKey(KeyCode.LeftControl) ||
+                Input.GetKey(KeyCode.RightControl);
+
+            bool shiftDown =
+                Input.GetKey(KeyCode.LeftShift) ||
+                Input.GetKey(KeyCode.RightShift);
+
+            if (_requireCtrl.Value && !ctrlDown)
                 return false;
 
-            bool ctrlDown = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-
-            if (_hotkeyRequireCtrl.Value && !ctrlDown)
-                return false;
-
-            if (_hotkeyRequireShift.Value && !shiftDown)
+            if (_requireShift.Value && !shiftDown)
                 return false;
 
             return true;
@@ -167,21 +208,29 @@ namespace KKPEHeightLockStandalone
         private void ToggleHeightLock(string source)
         {
             bool next = !_heightLockEnabled.Value;
+
             if (!next)
-                HeightLockPatch.ReleaseAll();
+                HeightLockPatch.ClearAll();
 
             _heightLockEnabled.Value = next;
             _lastHeightSetting = next;
-            SetResult(source + ": Height Lock " + (next ? "ON" : "OFF"), false);
+
+            SetResult(
+                source + ": Height Lock " +
+                (next ? "ON - current height will be captured" : "OFF"),
+                false);
         }
 
         private void CycleBodyMode(string source)
         {
-            PreserveBodyMode next = _bodyMode.Value == PreserveBodyMode.Off
-                ? PreserveBodyMode.ShapeOnly
-                : (_bodyMode.Value == PreserveBodyMode.ShapeOnly
-                    ? PreserveBodyMode.AllBody
-                    : PreserveBodyMode.Off);
+            PreserveBodyMode next;
+
+            if (_bodyMode.Value == PreserveBodyMode.Off)
+                next = PreserveBodyMode.ShapeOnly;
+            else if (_bodyMode.Value == PreserveBodyMode.ShapeOnly)
+                next = PreserveBodyMode.AllBody;
+            else
+                next = PreserveBodyMode.Off;
 
             SetBodyMode(next, source);
         }
@@ -189,72 +238,130 @@ namespace KKPEHeightLockStandalone
         private void SetBodyMode(PreserveBodyMode mode, string source)
         {
             _bodyMode.Value = mode;
-            SetResult(source + ": Body Preserve " + GetBodyModeLabel(mode), false);
+
+            SetResult(
+                source + ": Body Preserve " +
+                GetBodyModeLabel(mode) +
+                " (applies to next replacement)",
+                false);
         }
 
         private void OnGUI()
         {
             if (_windowVisible)
-                _windowRect = GUI.Window(0x4B50484C, _windowRect, DrawWindow, "KKPE Height / Body Lock v1.2.1");
+            {
+                _windowRect = GUI.Window(
+                    0x4B50484C,
+                    _windowRect,
+                    DrawWindow,
+                    "KKPE Height / Body Lock v1.2.3");
+            }
 
-            if (_showToast.Value && Time.realtimeSinceStartup < _toastUntil)
-                GUI.Box(new Rect(20f, 20f, 650f, 36f), _toastText);
+            if (_showToast.Value &&
+                Time.realtimeSinceStartup < _toastUntil)
+            {
+                GUI.Box(
+                    new Rect(20f, 20f, 720f, 36f),
+                    _toastText);
+            }
         }
 
         private void DrawWindow(int windowId)
         {
-            if (GUI.Button(new Rect(362f, 2f, 24f, 20f), "X"))
+            if (GUI.Button(new Rect(382f, 2f, 24f, 20f), "X"))
             {
                 HideWindow();
                 return;
             }
 
-            string heightText = HeightLockEnabled
-                ? "身高锁定：开启（点击关闭）"
-                : "身高锁定：关闭（点击开启）";
+            string heightText =
+                HeightLockEnabled
+                    ? "身高锁定：开启（点击关闭）"
+                    : "身高锁定：关闭（点击开启并捕获当前身高）";
 
-            if (GUI.Button(new Rect(10f, 32f, 370f, 34f), heightText))
+            if (GUI.Button(
+                new Rect(10f, 32f, 390f, 34f),
+                heightText))
+            {
                 ToggleHeightLock("Button");
+            }
 
-            GUI.Label(new Rect(10f, 76f, 370f, 20f), "替换角色时体型保留：");
-
-            if (GUI.Button(new Rect(10f, 100f, 116f, 32f), BodyMode == PreserveBodyMode.Off ? "● 关闭" : "关闭"))
-                SetBodyMode(PreserveBodyMode.Off, "Button");
-
-            if (GUI.Button(new Rect(137f, 100f, 116f, 32f), BodyMode == PreserveBodyMode.ShapeOnly ? "● 仅体型" : "仅体型"))
-                SetBodyMode(PreserveBodyMode.ShapeOnly, "Button");
-
-            if (GUI.Button(new Rect(264f, 100f, 116f, 32f), BodyMode == PreserveBodyMode.AllBody ? "● 体型+胸部" : "体型+胸部"))
-                SetBodyMode(PreserveBodyMode.AllBody, "Button");
-
-            GUI.Label(new Rect(10f, 142f, 370f, 20f), "当前：" + BuildStateText());
             GUI.Label(
-                new Rect(10f, 168f, 370f, 38f),
+                new Rect(10f, 76f, 390f, 20f),
+                "替换角色时保留体型（只影响后续替换）：");
+
+            if (GUI.Button(
+                new Rect(10f, 100f, 123f, 32f),
+                BodyMode == PreserveBodyMode.Off
+                    ? "● 关闭"
+                    : "关闭"))
+            {
+                SetBodyMode(
+                    PreserveBodyMode.Off,
+                    "Button");
+            }
+
+            if (GUI.Button(
+                new Rect(143f, 100f, 123f, 32f),
+                BodyMode == PreserveBodyMode.ShapeOnly
+                    ? "● 仅体型"
+                    : "仅体型"))
+            {
+                SetBodyMode(
+                    PreserveBodyMode.ShapeOnly,
+                    "Button");
+            }
+
+            if (GUI.Button(
+                new Rect(276f, 100f, 124f, 32f),
+                BodyMode == PreserveBodyMode.AllBody
+                    ? "● 体型+胸部"
+                    : "体型+胸部"))
+            {
+                SetBodyMode(
+                    PreserveBodyMode.AllBody,
+                    "Button");
+            }
+
+            GUI.Label(
+                new Rect(10f, 143f, 390f, 20f),
+                "当前：" + BuildStateText());
+
+            GUI.Label(
+                new Rect(10f, 169f, 390f, 40f),
                 "快捷键：Ctrl+Shift+" + _heightToggleKey.Value +
                 " 身高；Ctrl+Shift+" + _bodyModeKey.Value +
-                " 体型；Ctrl+Shift+" + _windowToggleKey.Value + " 窗口");
+                " 体型；Ctrl+Shift+" + _windowToggleKey.Value +
+                " 窗口");
 
-            GUI.Label(new Rect(10f, 208f, 370f, 22f), _lastResult);
+            GUI.Label(
+                new Rect(10f, 211f, 390f, 36f),
+                "提示：关闭体型保留不会回滚已经完成的替换。");
 
-            if (GUI.Button(new Rect(10f, 234f, 370f, 28f), "隐藏窗口"))
-            {
-                HideWindow();
-                return;
-            }
+            GUI.Label(
+                new Rect(10f, 244f, 390f, 20f),
+                _lastResult);
 
-            GUI.DragWindow(new Rect(0f, 0f, 355f, 24f));
+            GUI.DragWindow(new Rect(0f, 0f, 375f, 24f));
         }
 
         private void HideWindow()
         {
             _windowVisible = false;
-            SetResult("Window hidden - Ctrl+Shift+" + _windowToggleKey.Value + " to show", false);
+
+            SetResult(
+                "Window hidden - Ctrl+Shift+" +
+                _windowToggleKey.Value +
+                " to show",
+                false);
         }
 
         private string BuildStateText()
         {
-            return "Height=" + (HeightLockEnabled ? "ON" : "OFF") +
-                   " | Body=" + GetBodyModeLabel(BodyMode);
+            return "Height=" +
+                   (HeightLockEnabled ? "ON" : "OFF") +
+                   " | Body=" +
+                   GetBodyModeLabel(BodyMode);
         }
 
         private static string GetBodyModeLabel(PreserveBodyMode mode)
@@ -271,8 +378,10 @@ namespace KKPEHeightLockStandalone
         private void SetResult(string text, bool isError)
         {
             _lastResult = text;
-            _toastText = "KKPE Height/Body Lock - " + text;
-            _toastUntil = Time.realtimeSinceStartup + 3f;
+            _toastText =
+                "KKPE Height/Body Lock - " + text;
+            _toastUntil =
+                Time.realtimeSinceStartup + 3f;
 
             if (isError)
                 Logger.LogError(text);
@@ -280,247 +389,143 @@ namespace KKPEHeightLockStandalone
                 Logger.LogMessage(text);
         }
 
-        internal static void ReportError(string text, Exception exception)
+        internal static void ReportError(
+            string text,
+            Exception exception)
         {
             if (Instance == null)
                 return;
 
             Instance.SetResult(text, true);
+
             if (exception != null)
                 Instance.Logger.LogError(exception);
         }
     }
 
+    /// <summary>
+    /// Runtime height lock.
+    ///
+    /// This patch does not add/remove KKPE dirty entries.
+    /// It captures cf_n_height once, then writes that scale back after
+    /// KKPE ApplyBoneManualCorrection finishes.
+    ///
+    /// OFF clears the captured values. ON captures the current scale again.
+    /// </summary>
     [HarmonyPatch(typeof(BonesEditor), "ApplyBoneManualCorrection")]
     internal static class HeightLockPatch
     {
         private sealed class HeightState
         {
-            public Studio.OCIChar Character;
             public Transform Bone;
-            public bool Owned;
+            public Vector3 LockedScale;
         }
 
         private static FieldInfo _targetField;
-        private static FieldInfo _dirtyBonesField;
-        private static FieldInfo _scaleField;
-        private static MethodInfo _setBoneScaleMethod;
-        private static MethodInfo _setBoneNotDirtyIfMethod;
         private static bool _ready;
 
-        private static readonly Dictionary<BonesEditor, HeightState> States =
-            new Dictionary<BonesEditor, HeightState>();
+        private static readonly Dictionary<Studio.OCIChar, HeightState> States =
+            new Dictionary<Studio.OCIChar, HeightState>();
 
         internal static bool Initialize()
         {
-            Type editorType = typeof(BonesEditor);
+            _targetField =
+                AccessTools.Field(
+                    typeof(BonesEditor),
+                    "_target");
 
-            _targetField = AccessTools.Field(editorType, "_target");
-            _dirtyBonesField = AccessTools.Field(editorType, "_dirtyBones");
-            _setBoneScaleMethod = AccessTools.Method(
-                editorType, "SetBoneScale", new Type[] { typeof(Transform), typeof(Vector3) });
-            _setBoneNotDirtyIfMethod = AccessTools.Method(
-                editorType, "SetBoneNotDirtyIf", new Type[] { typeof(GameObject) });
-
-            if (_dirtyBonesField != null)
-            {
-                Type[] arguments = _dirtyBonesField.FieldType.GetGenericArguments();
-                if (arguments.Length == 2)
-                {
-                    _scaleField = arguments[1].GetField(
-                        "scale",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                }
-            }
-
-            _ready =
-                _targetField != null &&
-                _dirtyBonesField != null &&
-                _scaleField != null &&
-                _setBoneScaleMethod != null &&
-                _setBoneNotDirtyIfMethod != null;
-
+            _ready = _targetField != null;
             return _ready;
         }
 
-        private static void Prefix(BonesEditor __instance)
+        private static void Postfix(BonesEditor __instance)
         {
-            if (!_ready || !KKPEHeightLockStandalonePlugin.HeightLockEnabled)
+            if (!_ready ||
+                !KKPEHeightLockStandalonePlugin.HeightLockEnabled)
+            {
                 return;
+            }
 
             try
             {
-                CleanupDeadStates();
+                GenericOCITarget target =
+                    _targetField.GetValue(__instance)
+                    as GenericOCITarget;
 
-                GenericOCITarget target = _targetField.GetValue(__instance) as GenericOCITarget;
-                if (target == null || target.type != GenericOCITarget.Type.Character)
+                if (target == null ||
+                    target.type != GenericOCITarget.Type.Character ||
+                    target.ociChar == null)
+                {
                     return;
+                }
 
-                HeightState state = GetState(__instance, target.ociChar);
+                HeightState state =
+                    GetState(target.ociChar);
+
                 if (state == null)
                     return;
 
-                IDictionary dirtyBones = _dirtyBonesField.GetValue(__instance) as IDictionary;
-                if (dirtyBones == null)
-                    return;
-
-                if (dirtyBones.Contains(state.Bone.gameObject))
-                {
-                    object transformData = dirtyBones[state.Bone.gameObject];
-                    if (transformData != null)
-                    {
-                        HSPE.EditableValue<Vector3> scale =
-                            (HSPE.EditableValue<Vector3>)_scaleField.GetValue(transformData);
-
-                        // Existing scale correction already locks height.
-                        // Do not claim or overwrite it.
-                        if (scale.hasValue)
-                            return;
-                    }
-                }
-
-                _setBoneScaleMethod.Invoke(
-                    __instance,
-                    new object[] { state.Bone, state.Bone.localScale });
-
-                state.Owned = true;
+                state.Bone.localScale =
+                    state.LockedScale;
             }
             catch (Exception ex)
             {
-                KKPEHeightLockStandalonePlugin.ReportError("Height Lock runtime error.", ex);
+                KKPEHeightLockStandalonePlugin.ReportError(
+                    "Height Lock runtime error.",
+                    ex);
             }
         }
 
-        private static HeightState GetState(BonesEditor editor, Studio.OCIChar character)
+        private static HeightState GetState(
+            Studio.OCIChar character)
         {
             HeightState state;
-            if (States.TryGetValue(editor, out state))
+
+            if (States.TryGetValue(
+                character,
+                out state))
             {
-                if (state.Bone != null && ReferenceEquals(state.Character, character))
+                if (state.Bone != null)
                     return state;
 
-                States.Remove(editor);
+                States.Remove(character);
             }
 
-            if (character == null || character.charInfo == null)
+            if (character.charInfo == null)
                 return null;
 
-            Transform bone = FindChildRecursive(
-                character.charInfo.transform,
-                KKPEHeightLockStandalonePlugin.HeightBoneName);
+            Transform bone =
+                FindChildRecursive(
+                    character.charInfo.transform,
+                    KKPEHeightLockStandalonePlugin.HeightBoneName);
 
             if (bone == null)
                 return null;
 
-            state = new HeightState
-            {
-                Character = character,
-                Bone = bone,
-                Owned = false
-            };
+            state = new HeightState();
+            state.Bone = bone;
+            state.LockedScale = bone.localScale;
 
-            States[editor] = state;
+            States[character] = state;
+
             return state;
         }
 
-        internal static void ReleaseAll()
+        internal static void ClearAll()
         {
-            if (!_ready || States.Count == 0)
-                return;
-
-            List<BonesEditor> editors = new List<BonesEditor>(States.Keys);
-            for (int i = 0; i < editors.Count; i++)
-            {
-                HeightState state;
-                if (States.TryGetValue(editors[i], out state))
-                    ReleaseState(editors[i], state);
-            }
+            States.Clear();
         }
 
-        internal static void ReleaseForCharacter(Studio.OCIChar character)
+        internal static void ClearForCharacter(
+            Studio.OCIChar character)
         {
-            if (!_ready || character == null || States.Count == 0)
-                return;
-
-            List<BonesEditor> editors = new List<BonesEditor>();
-
-            foreach (KeyValuePair<BonesEditor, HeightState> pair in States)
-            {
-                if (pair.Value != null && ReferenceEquals(pair.Value.Character, character))
-                    editors.Add(pair.Key);
-            }
-
-            for (int i = 0; i < editors.Count; i++)
-            {
-                HeightState state;
-                if (!States.TryGetValue(editors[i], out state))
-                    continue;
-
-                ReleaseState(editors[i], state);
-                States.Remove(editors[i]);
-            }
+            if (character != null)
+                States.Remove(character);
         }
 
-        private static void ReleaseState(BonesEditor editor, HeightState state)
-        {
-            if (state == null || !state.Owned || state.Bone == null)
-                return;
-
-            IDictionary dirtyBones = _dirtyBonesField.GetValue(editor) as IDictionary;
-            if (dirtyBones == null || !dirtyBones.Contains(state.Bone.gameObject))
-            {
-                state.Owned = false;
-                return;
-            }
-
-            object transformData = dirtyBones[state.Bone.gameObject];
-            if (transformData == null)
-            {
-                state.Owned = false;
-                return;
-            }
-
-            HSPE.EditableValue<Vector3> scale =
-                (HSPE.EditableValue<Vector3>)_scaleField.GetValue(transformData);
-
-            if (!scale.hasValue)
-            {
-                state.Owned = false;
-                return;
-            }
-
-            // EditableValue<T> is a struct; write the Reset() result back.
-            scale.Reset();
-            _scaleField.SetValue(transformData, scale);
-
-            // KKPE restores originalScale and preserves unrelated position/rotation edits.
-            _setBoneNotDirtyIfMethod.Invoke(editor, new object[] { state.Bone.gameObject });
-            state.Owned = false;
-        }
-
-        private static void CleanupDeadStates()
-        {
-            List<BonesEditor> dead = null;
-
-            foreach (KeyValuePair<BonesEditor, HeightState> pair in States)
-            {
-                if (pair.Value != null && pair.Value.Bone != null)
-                    continue;
-
-                if (dead == null)
-                    dead = new List<BonesEditor>();
-
-                dead.Add(pair.Key);
-            }
-
-            if (dead == null)
-                return;
-
-            for (int i = 0; i < dead.Count; i++)
-                States.Remove(dead[i]);
-        }
-
-        private static Transform FindChildRecursive(Transform parent, string name)
+        private static Transform FindChildRecursive(
+            Transform parent,
+            string name)
         {
             if (parent == null)
                 return null;
@@ -528,9 +533,15 @@ namespace KKPEHeightLockStandalone
             if (parent.name == name)
                 return parent;
 
-            for (int i = 0; i < parent.childCount; i++)
+            for (int i = 0;
+                 i < parent.childCount;
+                 i++)
             {
-                Transform result = FindChildRecursive(parent.GetChild(i), name);
+                Transform result =
+                    FindChildRecursive(
+                        parent.GetChild(i),
+                        name);
+
                 if (result != null)
                     return result;
             }
@@ -539,7 +550,13 @@ namespace KKPEHeightLockStandalone
         }
     }
 
-    [HarmonyPatch(typeof(Studio.OCIChar), "ChangeChara")]
+    /// <summary>
+    /// Patch the outermost Studio character replacement methods.
+    ///
+    /// OCICharFemale.ChangeChara performs extra work after base.ChangeChara,
+    /// so patching OCIChar.ChangeChara alone restores body values too early.
+    /// </summary>
+    [HarmonyPatch]
     internal static class BodyPreservePatch
     {
         private sealed class BodyState
@@ -550,67 +567,152 @@ namespace KKPEHeightLockStandalone
             public PreserveBodyMode Mode;
         }
 
-        private static void Prefix(Studio.OCIChar __instance, out BodyState __state)
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(
+                typeof(Studio.OCICharFemale),
+                "ChangeChara",
+                new Type[] { typeof(string) });
+
+            yield return AccessTools.Method(
+                typeof(Studio.OCICharMale),
+                "ChangeChara",
+                new Type[] { typeof(string) });
+        }
+
+        private static void Prefix(
+            Studio.OCIChar __instance,
+            out BodyState __state)
         {
             __state = null;
 
             try
             {
-                // Always discard the old character's plugin-owned height lock before rebuild.
-                HeightLockPatch.ReleaseForCharacter(__instance);
+                // The current character will be rebuilt, so its captured
+                // height transform must be discarded regardless of body mode.
+                HeightLockPatch.ClearForCharacter(
+                    __instance);
 
-                PreserveBodyMode mode = KKPEHeightLockStandalonePlugin.BodyMode;
-                if (mode == PreserveBodyMode.Off || __instance == null || __instance.charInfo == null)
-                    return;
+                PreserveBodyMode mode =
+                    KKPEHeightLockStandalonePlugin.BodyMode;
 
-                ChaFileBody body = __instance.charInfo.fileBody;
-                if (body == null || body.shapeValueBody == null)
-                    return;
-
-                __state = new BodyState
+                if (mode == PreserveBodyMode.Off ||
+                    __instance == null ||
+                    __instance.charInfo == null)
                 {
-                    Mode = mode,
-                    ShapeValues = (float[])body.shapeValueBody.Clone(),
-                    BustSoftness = body.bustSoftness,
-                    BustWeight = body.bustWeight
-                };
+                    return;
+                }
+
+                ChaFileBody body =
+                    __instance.charInfo.fileBody;
+
+                if (body == null ||
+                    body.shapeValueBody == null)
+                {
+                    return;
+                }
+
+                __state = new BodyState();
+                __state.Mode = mode;
+                __state.ShapeValues =
+                    (float[])
+                    body.shapeValueBody.Clone();
+
+                if (mode == PreserveBodyMode.AllBody)
+                {
+                    __state.BustSoftness =
+                        body.bustSoftness;
+
+                    __state.BustWeight =
+                        body.bustWeight;
+                }
             }
             catch (Exception ex)
             {
-                KKPEHeightLockStandalonePlugin.ReportError("Body Preserve snapshot error.", ex);
+                KKPEHeightLockStandalonePlugin.ReportError(
+                    "Body Preserve snapshot error.",
+                    ex);
             }
         }
 
-        private static void Postfix(Studio.OCIChar __instance, BodyState __state)
+        private static void Postfix(
+            Studio.OCIChar __instance,
+            BodyState __state)
         {
-            if (__state == null)
-                return;
-
             try
             {
-                if (__instance == null || __instance.charInfo == null)
-                    return;
-
-                ChaFileBody body = __instance.charInfo.fileBody;
-                if (body == null)
-                    return;
-
-                body.shapeValueBody = (float[])__state.ShapeValues.Clone();
-
-                if (__state.Mode == PreserveBodyMode.AllBody)
+                if (__state != null &&
+                    __instance != null &&
+                    __instance.charInfo != null)
                 {
-                    body.bustSoftness = __state.BustSoftness;
-                    body.bustWeight = __state.BustWeight;
+                    ChaFileBody body =
+                        __instance.charInfo.fileBody;
+
+                    if (body != null)
+                    {
+                        body.shapeValueBody =
+                            (float[])
+                            __state.ShapeValues.Clone();
+
+                        if (__state.Mode ==
+                            PreserveBodyMode.AllBody)
+                        {
+                            body.bustSoftness =
+                                __state.BustSoftness;
+
+                            body.bustWeight =
+                                __state.BustWeight;
+                        }
+
+                        // UpdateShapeBodyValueFromCustomInfo() updates sibBody
+                        // and sets updateShapeBody=true. Apply UpdateShapeBody()
+                        // immediately so cf_n_height and the other body bones
+                        // already match the restored values before the late
+                        // KKPE height-lock pass captures its next baseline.
+                        __instance.charInfo
+                            .UpdateShapeBodyValueFromCustomInfo();
+
+                        __instance.charInfo
+                            .UpdateShapeBody();
+
+                        if (__state.Mode ==
+                            PreserveBodyMode.AllBody)
+                        {
+                            __instance.charInfo
+                                .UpdateBustSoftnessAndGravity();
+                        }
+
+                        // OCICharFemale.ChangeChara normally syncs these after
+                        // base.ChangeChara. We restored shape after that point,
+                        // so repeat the same public synchronization using the
+                        // restored body values.
+                        if (__instance is Studio.OCICharFemale)
+                        {
+                            __instance.optionItemCtrl.height =
+                                body.shapeValueBody[0];
+
+                            __instance.charInfo
+                                .setAnimatorParamFloat(
+                                    "height",
+                                    body.shapeValueBody[0]);
+
+                            if (__instance.isAnimeMotion)
+                            {
+                                __instance.charInfo
+                                    .setAnimatorParamFloat(
+                                        "breast",
+                                        body.shapeValueBody[1]);
+                            }
+                        }
+                    }
                 }
 
-                __instance.charInfo.UpdateShapeBodyValueFromCustomInfo();
-
-                if (__state.Mode == PreserveBodyMode.AllBody)
-                    __instance.charInfo.UpdateBustSoftnessAndGravity();
             }
             catch (Exception ex)
             {
-                KKPEHeightLockStandalonePlugin.ReportError("Body Preserve restore error.", ex);
+                KKPEHeightLockStandalonePlugin.ReportError(
+                    "Body Preserve restore error.",
+                    ex);
             }
         }
     }
