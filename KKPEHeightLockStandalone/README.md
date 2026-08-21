@@ -98,5 +98,7 @@ build.bat：
 - /noconfig
 - /nostdlib+
 - /langversion:4
+- 输出到仓库根目录 `releases\KKPEHeightLockStandalone.dll`
 - 不自动安装
 - 不修改恋活原文件
+- 不使用系统缓存目录

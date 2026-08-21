@@ -137,7 +137,7 @@ ShowHotkeyToast = true
 2. 输入恋活游戏根目录，或把游戏根目录拖到命令行窗口中。
 3. 脚本检查 `CharaStudio.exe`、游戏 Managed 目录、BepInEx 与 Timeline。
 4. 使用本机 .NET Framework `csc.exe` 编译。
-5. 编译成功后自动复制 DLL 到插件目录。
+5. 编译成功后只发布 DLL 到仓库根目录的 `releases\` 文件夹，不自动安装。
 
 也可以直接传参：
 
@@ -162,6 +162,8 @@ build.bat "D:\Games\Koikatu"
 /nostdlib+
 /langversion:4
 ```
+
+构建脚本不会写入恋活目录、BepInEx 插件目录或系统缓存目录。
 
 这套方式是为了匹配 Koikatu / CharaStudio 的 Unity Mono / NET35 运行环境，避免错误引用桌面 .NET 4 标准库。
 

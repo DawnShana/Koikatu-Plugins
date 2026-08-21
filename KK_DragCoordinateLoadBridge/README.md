@@ -88,11 +88,13 @@ build.bat
 
 不使用 NuGet，也不调用 `dotnet restore`。
 
-成功后安装到：
+成功后只发布到仓库根目录的：
 
 ```text
-BepInEx\plugins\KK_DragCoordinateLoadBridge\KK_DragCoordinateLoadBridge.dll
+releases\KK_DragCoordinateLoadBridge.dll
 ```
+
+构建脚本不会写入恋活目录、BepInEx 插件目录或系统缓存目录。
 
 ## 诊断
 
