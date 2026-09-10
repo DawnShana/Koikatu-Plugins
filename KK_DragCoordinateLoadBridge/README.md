@@ -7,7 +7,27 @@
 - CharaStudio
 - Koikatu Maker / 角色编辑器
 
-核心原则：**Bridge 只负责桥接拖卡入口，不重新实现换装，不修改 DragAndDrop/CLO 原 DLL，也不为了理论风险增加大型状态机。**
+核心原则：**Bridge 只负责桥接拖卡入口，不重新实现换装，不修改 DragAndDrop/CLO 原 DLL，也不把外部服装卡强行写进游戏真实列表。**
+
+## 2026-09-10：Studio 拖入服装卡预览空白修复
+
+此前 CharaStudio 中从资源管理器拖入外部 Coordinate / 服装卡后，CLO 可以正确取得文件路径并打开选择性加载界面，但 Studio 原生服装卡预览仍为空白。
+
+原因是两条逻辑彼此独立：
+
+1. CLO 的 `OnSelectPostfix(...)` 只需要当前 `CharaFileSort.selectPath`，Bridge 的 detached `CharaFileSort` 已能满足这一点；
+2. Studio 的预览图不会因为 `selectPath` 改变自动刷新，而是由 `MPCharCtrl.CostumeInfo.LoadImage(int)` 单独调用 `PngAssist.LoadTexture(...)`，再把 `imageThumbnail` 显示出来。
+
+本次增加 `KK_DragCoordinatePreviewRefresh.cs`，仍编译进同一个 `KK_DragCoordinateLoadBridge.dll`：
+
+- 仅在 CharaStudio 启用；
+- 在 CLO 完成 `OnSelectPostfix(...)` 后、Bridge 尚未恢复真实 `fileSort` 的瞬间执行；
+- 只识别 Bridge 创建的 detached `CharaFileInfo`（它没有真实 UI `node`）；
+- 调用 Studio 自己的 `CostumeInfo.LoadImage(select)` 刷新预览；
+- 普通 Studio 文件列表点击不会触发这条补偿逻辑；
+- 预览刷新失败也不会中断 CLO 选择性加载。
+
+因此该修复不会自行解析/改写 Coordinate PNG，也不会向 Studio 的真实服装卡列表注入临时项目。
 
 ## v1.2.3 修复重点
 
@@ -23,12 +43,11 @@ v1.2.3 延续 v1.2.2 的 Maker 修复，并继续处理首次进入 Coordinate L
 2. 从资源管理器拖入一张 Coordinate / 服装卡。
 3. Bridge 阻止 DragAndDrop 立即整套换装。
 4. 自动进入 `anim -> 衣服 / Costume`。
-5. CLO 打开“显示选择”。
-6. 用户勾选要加载的部位。
-7. 点击 Studio 原 Load。
-8. CLO 自己执行选择性加载。
-
-Studio 分支保持 v1.1.6 以来的工作流，不因 Maker 支持重新实现。
+5. 外部服装卡预览由 Studio 原生 `LoadImage` 链刷新。
+6. CLO 打开“显示选择”。
+7. 用户勾选要加载的部位。
+8. 点击 Studio 原 Load。
+9. CLO 自己执行选择性加载。
 
 ## Koikatu Maker 工作流
 
@@ -48,12 +67,14 @@ Bridge 不会：
 
 - 把外部 Coordinate 复制进 `UserData`；
 - 向 Maker 真实 `listCtrl` 注入项目；
-- Patch CLO；
-- Patch `CustomCoordinateFile` / `CustomFileWindow` / `ChaControl`；
+- 修改 DragAndDrop / CLO 原 DLL；
+- Patch `CustomCoordinateFile` / `CustomFileWindow` / `ChaControl` 的换装实现；
 - 创建第二套选择 UI；
 - 自己写角色的 clothes/accessory 数据；
 - 锁死依赖 DLL 的 SHA/MVID；
 - 排斥其他 Harmony owner。
+
+Studio 的预览补偿只针对 CLO 的选择事件增加只读式 Postfix，并调用游戏已有的缩略图加载方法；它不改变 CLO 的实际选择性换装逻辑。
 
 ## 为什么需要维持原 Load 按钮
 
@@ -86,9 +107,14 @@ build.bat
 /langversion:4
 ```
 
-不使用 NuGet，也不调用 `dotnet restore`。
+现在会同时编译：
 
-成功后只发布到仓库根目录的：
+```text
+KK_DragCoordinateLoadBridge.cs
+KK_DragCoordinatePreviewRefresh.cs
+```
+
+不使用 NuGet，也不调用 `dotnet restore`。成功后只发布到仓库根目录：
 
 ```text
 releases\KK_DragCoordinateLoadBridge.dll
@@ -112,17 +138,19 @@ Maker coordinate drop intercepted; original DragAndDrop whole-coordinate load wi
 [MakerAdapter] Prepared dropped coordinate and armed Maker Coordinate Load button: ...
 ```
 
-## 当前自检
+Studio 预览补偿插件成功挂载时，BepInEx 日志会出现：
 
 ```text
-47 / 47 PASS
+Studio external-coordinate preview refresh hook installed.
 ```
 
-这是源码静态/结构检查，不代表本仓库提交环境已经运行 Windows `csc.exe` 或 Koikatu/CharaStudio 实机。
+## 自检说明
+
+原 Bridge 的既有静态检查仍可通过 `self_check.py` 执行。此次新增预览修复使用游戏实际 `CharaFileSort / CharaFileInfo / MPCharCtrl.CostumeInfo` 调用链进行结构核对，但仓库提交环境不包含用户本机 Koikatu 运行库，因此最终 DLL 仍应使用 `build.bat` 在实际游戏目录依赖下编译。
 
 相关资料：
 
 - `SELF_REVIEW_1.2.3.md`
 - `RUNTIME_FIX_1.2.3.md`
 - `SELF_CHECK_RESULT.txt`
-- `MAKER_BINARY_AUDIT.md`（实际二进制审计基线；v1.2.3 未改变其核心二进制契约）
+- `MAKER_BINARY_AUDIT.md`
