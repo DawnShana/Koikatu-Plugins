@@ -7,15 +7,27 @@
 - CharaStudio
 - Koikatu Maker / 角色编辑器
 
-核心原则：**Bridge 只负责桥接拖卡入口，不重新实现换装，不修改 DragAndDrop/CLO 原 DLL，也不为了理论风险增加大型状态机。**
+核心原则：**Bridge 只负责桥接拖卡入口，不重新实现换装，不修改 DragAndDrop/CLO 原 DLL，也不把外部服装卡强行写进游戏真实列表。**
 
-## v1.2.3 修复重点
+## 2026-09-10：Studio 拖入服装卡预览空白修复
 
-v1.2.3 延续 v1.2.2 的 Maker 修复，并继续处理首次进入 Coordinate Load 时的 UI 生命周期问题：
+此前 CharaStudio 中从资源管理器拖入外部 Coordinate / 服装卡后，CLO 可以正确取得文件路径并打开选择性加载界面，但 Studio 原生服装卡预览仍为空白。
 
-1. CLO 的真实 `CoordinateLoadBtn` 必须已经 `activeInHierarchy == true`，Bridge 才会调用它；如果原生 Coordinate Load 层级还没真正激活，只做现有的短 deferred retry。
-2. 当 CLO `coordinatePath` 已经离开 Bridge 的拖入路径时，Bridge 立即释放 ownership，并取消自己强制保持的 Load 按钮状态，之后交回 Maker 原生 UI 更新。
-3. 删除 v1.2.2 中没有直接功能价值的 Maker `CanvasGroup alpha/interactable/blocksRaycasts` readiness gate，避免把 UI 外观/布局状态当作功能契约。
+原因是两条逻辑彼此独立：
+
+1. CLO 的 `OnSelectPostfix(...)` 只需要当前 `CharaFileSort.selectPath`，Bridge 的 detached `CharaFileSort` 已能满足这一点；
+2. Studio 的预览图不会因为 `selectPath` 改变自动刷新，而是由 `MPCharCtrl.CostumeInfo.LoadImage(int)` 单独调用 `PngAssist.LoadTexture(...)`，再把 `imageThumbnail` 显示出来。
+
+本次增加 `KK_DragCoordinatePreviewRefresh.cs`，仍编译进同一个 `KK_DragCoordinateLoadBridge.dll`：
+
+- 仅在 CharaStudio 启用；
+- 在 CLO 完成 `OnSelectPostfix(...)` 后、Bridge 尚未恢复真实 `fileSort` 的瞬间执行；
+- 只识别 Bridge 创建的 detached `CharaFileInfo`（它没有真实 UI `node`）；
+- 调用 Studio 自己的 `CostumeInfo.LoadImage(select)` 刷新预览；
+- 普通 Studio 文件列表点击不会触发这条补偿逻辑；
+- 预览刷新失败也不会中断 CLO 选择性加载。
+
+因此该修复不会自行解析/改写 Coordinate PNG，也不会向 Studio 的真实服装卡列表注入临时项目。
 
 ## CharaStudio 工作流
 
@@ -23,12 +35,11 @@ v1.2.3 延续 v1.2.2 的 Maker 修复，并继续处理首次进入 Coordinate L
 2. 从资源管理器拖入一张 Coordinate / 服装卡。
 3. Bridge 阻止 DragAndDrop 立即整套换装。
 4. 自动进入 `anim -> 衣服 / Costume`。
-5. CLO 打开“显示选择”。
-6. 用户勾选要加载的部位。
-7. 点击 Studio 原 Load。
-8. CLO 自己执行选择性加载。
-
-Studio 分支保持 v1.1.6 以来的工作流，不因 Maker 支持重新实现。
+5. 外部服装卡预览由 Studio 原生 `LoadImage` 链刷新。
+6. CLO 打开“显示选择”。
+7. 用户勾选要加载的部位。
+8. 点击 Studio 原 Load。
+9. CLO 自己执行选择性加载。
 
 ## Koikatu Maker 工作流
 
@@ -42,34 +53,19 @@ Studio 分支保持 v1.1.6 以来的工作流，不因 Maker 支持重新实现�
 8. 点击 Maker 原 Load。
 9. CLO 自己执行选择性加载。
 
-## Maker 实现边界
+## 实现边界
 
 Bridge 不会：
 
 - 把外部 Coordinate 复制进 `UserData`；
-- 向 Maker 真实 `listCtrl` 注入项目；
-- Patch CLO；
-- Patch `CustomCoordinateFile` / `CustomFileWindow` / `ChaControl`；
+- 向 Maker / Studio 真实文件列表注入项目；
+- 修改 DragAndDrop / CLO 原 DLL；
 - 创建第二套选择 UI；
 - 自己写角色的 clothes/accessory 数据；
-- 锁死依赖 DLL 的 SHA/MVID；
-- 排斥其他 Harmony owner。
+- 自己解析或改写拖入 Coordinate PNG；
+- 锁死依赖 DLL 的 SHA/MVID。
 
-## 为什么需要维持原 Load 按钮
-
-Maker 原 `CustomCoordinateFile` 会根据真实 `listCtrl` 是否有选中项目持续重算 `btnCoordeLoadLoad.interactable`。外部拖入卡不进入真实列表，所以 Bridge 只在当前 pending 拖入路径仍归自己所有、CLO selective panel 仍有效时，于 `LateUpdate()` 维持**原生 Load 按钮**可用。
-
-这不会替代用户点击 Load。
-
-## 多文件拖入
-
-Maker 的 DragAndDrop 接口是单文件：
-
-```text
-Coordinate_Load(string, POINT)
-```
-
-同一批连续拖入多张卡时采用 **last drop wins**：后到路径覆盖旧 pending，原完整换装仍全部 suppress。
+Studio 的预览补偿只针对 CLO 的选择事件增加只读式 Postfix，并调用游戏已有的缩略图加载方法；它不改变 CLO 的实际选择性换装逻辑。
 
 ## 构建
 
@@ -79,19 +75,24 @@ Coordinate_Load(string, POINT)
 build.bat
 ```
 
-输入或拖入 Koikatu 游戏根目录。脚本使用本机 .NET Framework `csc.exe` 与游戏 NET35/Mono 依赖：
+输入或拖入 Koikatu 游戏根目录。脚本使用本机 .NET Framework `csc.exe` 与游戏 NET35/Mono 依赖，并同时编译：
+
+```text
+KK_DragCoordinateLoadBridge.cs
+KK_DragCoordinatePreviewRefresh.cs
+```
+
+构建参数包括：
 
 ```text
 /nostdlib+
 /langversion:4
 ```
 
-不使用 NuGet，也不调用 `dotnet restore`。
-
-成功后安装到：
+不使用 NuGet，也不调用 `dotnet restore`。成功后只发布到：
 
 ```text
-BepInEx\plugins\KK_DragCoordinateLoadBridge\KK_DragCoordinateLoadBridge.dll
+releases\KK_DragCoordinateLoadBridge.dll
 ```
 
 ## 诊断
@@ -102,25 +103,12 @@ BepInEx\plugins\KK_DragCoordinateLoadBridge\KK_DragCoordinateLoadBridge.dll
 BepInEx\config\KK_DragCoordinateLoadBridge.runtime.log
 ```
 
-Maker 正常拖卡应看到类似：
+Studio 预览补偿插件成功挂载时，BepInEx 日志会出现：
 
 ```text
-Maker coordinate drop intercepted; original DragAndDrop whole-coordinate load will be suppressed: ...
-[MakerAdapter] Invoked CLO Maker's real Show Selection button.
-[MakerAdapter] Prepared dropped coordinate and armed Maker Coordinate Load button: ...
+Studio external-coordinate preview refresh hook installed.
 ```
 
-## 当前自检
+## 自检说明
 
-```text
-47 / 47 PASS
-```
-
-这是源码静态/结构检查，不代表本仓库提交环境已经运行 Windows `csc.exe` 或 Koikatu/CharaStudio 实机。
-
-相关资料：
-
-- `SELF_REVIEW_1.2.3.md`
-- `RUNTIME_FIX_1.2.3.md`
-- `SELF_CHECK_RESULT.txt`
-- `MAKER_BINARY_AUDIT.md`（实际二进制审计基线；v1.2.3 未改变其核心二进制契约）
+`self_check.py` 已增加本次预览修复的结构检查。仓库提交环境不包含用户本机 Koikatu 运行库，因此源码审查不能代替最终 Windows/Koikatu 依赖下的 DLL 编译与实机运行。
