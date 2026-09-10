@@ -2,6 +2,32 @@
 
 本版按 Koikatu / KKPE 源码执行链路实现身高锁定与角色替换时的体型保留，并将运行时控制彻底收敛到 **BepInEx ConfigurationManager（通常按 F1 打开）**。
 
+## 更新日志
+
+### v1.2.5 - 2026-09-10
+
+- 将运行时控制彻底改为 **F1 / ConfigurationManager-only**。
+- F1 页面只注册并显示：
+  - `Lock > HeightLockEnabled`
+  - `Lock > BodyPreserveMode`
+- 从主源码删除旧 `Hotkey` 配置、`ShowWindow`、`ShowHotkeyToast` 配置。
+- 删除插件自带 `OnGUI` 控制窗口、快捷键检测和 toast 提示逻辑。
+- 删除临时的 `KKPEHeightLockF1Only.cs` Harmony 屏蔽补丁，避免主源码删除旧方法后产生无效 Patch 目标。
+- 保留 `Update()` 对 `HeightLockEnabled` 的配置变化检测，从 F1 关闭身高锁时仍立即执行 `ReleaseAllAndRefresh()`。
+- `build.bat` 改回只编译 `KKPEHeightLockStandalone.cs`。
+- 构建脚本关闭 Delayed Expansion，避免游戏路径包含 `!` 时被 CMD 错误展开；同时补齐运行依赖 DLL 检查。
+- 插件版本由 `1.2.4` 升级为 `1.2.5`。
+
+### v1.2.4
+
+- 修正关闭身高锁后的恢复流程：先按当前人物卡 `shapeValueBody` 刷新身体，再清理身高锁缓存。
+- 当体型保留模式为 `Off` 时，角色替换完成后立即同步新人物卡自身的身高参数。
+
+### v1.2.3
+
+- 体型恢复后显式调用 `UpdateShapeBodyValueFromCustomInfo()` 与 `UpdateShapeBody()`，确保实际骨骼 Transform 在当前替换流程内完成同步。
+- 移除角色替换 Postfix 中多余的第二次 `HeightLockPatch.ClearForCharacter()`。
+
 ## 控制方式：仅 F1 / ConfigurationManager
 
 当前插件只注册两个可配置项：
