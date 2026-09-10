@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
+setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
 set "RELEASES_DIR=..\releases"
 set "OUTPUT_NAME=KKPEHeightLockStandalone.dll"
@@ -41,6 +41,16 @@ if not exist "%MANAGED%\mscorlib.dll" (
     pause
     exit /b 1
 )
+if not exist "%MANAGED%\System.dll" (
+    echo [ERROR] Game System.dll was not found.
+    pause
+    exit /b 1
+)
+if not exist "%MANAGED%\System.Core.dll" (
+    echo [ERROR] Game System.Core.dll was not found.
+    pause
+    exit /b 1
+)
 
 set "CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 if exist "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -59,17 +69,23 @@ if not exist "%BEPINEX%" (
 )
 
 set "HARMONY=%GAME_DIR%\BepInEx\core\0Harmony.dll"
-if not exist "%HARMONY%" (
-    echo [ERROR] 0Harmony.dll was not found.
+if not exist "%HARMONY%" set "HARMONY="
+if not defined HARMONY (
+    for /r "%GAME_DIR%\BepInEx" %%F in (0Harmony.dll) do if not defined HARMONY set "HARMONY=%%~fF"
+)
+if not defined HARMONY (
+    echo [ERROR] 0Harmony.dll was not found under the selected runtime folder.
     pause
     exit /b 1
 )
 
 set "KKPE="
-for /r "%GAME_DIR%\BepInEx\plugins" %%F in (KKPE.dll) do (
-    if exist "%%~fF" (
-        set "KKPE=%%~fF"
-        goto :kkpe_found
+if exist "%GAME_DIR%\BepInEx\plugins\" (
+    for /r "%GAME_DIR%\BepInEx\plugins" %%F in (KKPE.dll) do (
+        if exist "%%~fF" (
+            set "KKPE=%%~fF"
+            goto :kkpe_found
+        )
     )
 )
 
@@ -93,10 +109,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-set "FRAMEWORK_REFS=/reference:""%MANAGED%\mscorlib.dll"""
-if exist "%MANAGED%\System.dll" set "FRAMEWORK_REFS=!FRAMEWORK_REFS! /reference:""%MANAGED%\System.dll"""
-if exist "%MANAGED%\System.Core.dll" set "FRAMEWORK_REFS=!FRAMEWORK_REFS! /reference:""%MANAGED%\System.Core.dll"""
-
 echo [INFO] Runtime dependencies detected.
 echo.
 
@@ -104,7 +116,9 @@ if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
 
 "%CSC%" /nologo /noconfig /nostdlib+ /target:library /optimize+ /codepage:65001 /langversion:4 ^
  /out:"%OUTPUT_TMP%" ^
- !FRAMEWORK_REFS! ^
+ /reference:"%MANAGED%\mscorlib.dll" ^
+ /reference:"%MANAGED%\System.dll" ^
+ /reference:"%MANAGED%\System.Core.dll" ^
  /reference:"%BEPINEX%" ^
  /reference:"%HARMONY%" ^
  /reference:"%KKPE%" ^
@@ -117,6 +131,7 @@ if errorlevel 1 (
     if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
     echo.
     echo [ERROR] Build failed.
+    echo Copy the COMPLETE compiler output when reporting the problem.
     pause
     exit /b 1
 )
