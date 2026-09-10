@@ -7,7 +7,7 @@ set "OUTPUT_TMP=%RELEASES_DIR%\%OUTPUT_NAME%.tmp"
 set "OUTPUT_DLL=%RELEASES_DIR%\%OUTPUT_NAME%"
 
 echo ======================================================
-echo   KKPE Height/Body Lock v1.2.4 - NET35 Build
+echo   KKPE Height/Body Lock v1.2.5 - NET35 Build
 echo ======================================================
 echo.
 echo IMPORTANT:
@@ -124,8 +124,7 @@ if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
  /reference:"%KKPE%" ^
  /reference:"%MANAGED%\Assembly-CSharp.dll" ^
  /reference:"%MANAGED%\UnityEngine.dll" ^
- "KKPEHeightLockStandalone.cs" ^
- "KKPEHeightLockF1Only.cs"
+ "KKPEHeightLockStandalone.cs"
 
 if errorlevel 1 (
     if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
