@@ -23,6 +23,7 @@
   - 删除旧 `Hotkey`、`ShowWindow`、`ShowHotkeyToast` 配置注册，F1 ConfigurationManager 只保留 `HeightLockEnabled` 与 `BodyPreserveMode`。
   - 删除临时 F1-only Harmony 屏蔽补丁，由主源码直接实现仅 F1 控制。
   - 修正 `build.bat` 对特殊路径的兼容性，关闭 Delayed Expansion 并补齐依赖 DLL 检查。
+  - 插件版本、构建脚本、插件 README 与依赖说明统一为 `1.2.5`。
 
 ## 直接依赖版本
 
