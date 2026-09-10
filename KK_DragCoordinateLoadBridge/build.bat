@@ -95,7 +95,8 @@ if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
  /reference:"%BEPINEX%" ^
  /reference:"%HARMONY%" ^
  /reference:"%MANAGED%\UnityEngine.dll" ^
- "KK_DragCoordinateLoadBridge.cs"
+ "KK_DragCoordinateLoadBridge.cs" ^
+ "KK_DragCoordinatePreviewRefresh.cs"
 
 if errorlevel 1 (
     if exist "%OUTPUT_TMP%" del /q "%OUTPUT_TMP%" >nul 2>&1
