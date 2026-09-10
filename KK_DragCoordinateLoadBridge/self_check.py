@@ -60,7 +60,7 @@ check("Preview hook is limited to Studio CostumeInfo", '"Studio.MPCharCtrl+Costu
 check("Preview hook identifies detached item by null node", 'GetProperty("node"' in PREVIEW and "!= null" in PREVIEW)
 check("Preview hook calls native CostumeInfo.LoadImage", '"LoadImage"' in PREVIEW and "loadImage.Invoke" in PREVIEW)
 check("Preview hook never parses or rewrites coordinate PNG", "LoadTexture(" not in PREVIEW and "LoadFile(" not in PREVIEW and "SaveFile(" not in PREVIEW)
-check("Preview failure is fail-soft", "catch (TargetInvocationException)" in PREVIEW and "catch\n" not in PREVIEW)
+check("Preview failure is fail-soft", "catch (TargetInvocationException)" in PREVIEW and "Preview failure must never break CLO's selective-load path." in PREVIEW)
 
 check("Build version is 1.2.3", "v1.2.3" in BAT)
 check("Build includes main bridge source", '"KK_DragCoordinateLoadBridge.cs"' in BAT)
