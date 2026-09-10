@@ -1,6 +1,23 @@
 # KKPEHeightLockStandalone v1.2.4 SOURCE-PROVEN
 
-本版不是等待运行反馈后再修，而是按 Koikatu / KKPE 源码执行链路修正。
+本版按 Koikatu / KKPE 源码执行链路实现身高锁定与角色替换时的体型保留，并追加 **F1-only 控制修复**：不再显示插件自带窗口，也不再响应插件自带快捷键；运行时控制统一交给 BepInEx ConfigurationManager（通常按 F1 打开）。
+
+## 控制方式：仅 F1 / ConfigurationManager
+
+插件仍保留原有 `ConfigEntry`，因此无需额外 UI：
+
+- `Lock > HeightLockEnabled`：开启 / 关闭身高锁定；
+- `Lock > BodyPreserveMode`：`Off` / `ShapeOnly` / `AllBody`。
+
+已禁用：
+
+- 启动时默认控制窗口；
+- Ctrl + Shift + H；
+- Ctrl + Shift + B；
+- Ctrl + Shift + F9；
+- 插件自己的 OnGUI 提示 / toast。
+
+注意：关闭 `HeightLockEnabled` 时，原插件 `Update()` 中的配置变更检测仍然保留，因此会照常执行 `ReleaseAllAndRefresh()`，不会因为关闭自带窗口/快捷键而破坏身高恢复逻辑。
 
 ## 身高锁定
 
@@ -12,12 +29,10 @@
 
 - `Manager.Character.LateUpdate` 的 Unity executionOrder = 0；
 - `IKExecutionOrder.LateUpdate` 的 executionOrder = 9996；
-- KKPE 的 `CharaPoseController` 在 `IKExecutionOrder.LateUpdate` Postfix 中调用各模块的
-  `IKExecutionOrderOnPostLateUpdate()`；
+- KKPE 的 `CharaPoseController` 在 `IKExecutionOrder.LateUpdate` Postfix 中调用各模块的 `IKExecutionOrderOnPostLateUpdate()`；
 - `BonesEditor.IKExecutionOrderOnPostLateUpdate()` 调用 `ApplyBoneManualCorrection()`。
 
-因此 HeightLock Postfix 在角色普通 LateUpdate、体型更新、FinalIK 和 KKPE bone correction
-之后执行，适合作为当前帧最后阶段的 `cf_n_height.localScale` 写回。
+因此 HeightLock Postfix 在角色普通 LateUpdate、体型更新、FinalIK 和 KKPE bone correction 之后执行，适合作为当前帧最后阶段的 `cf_n_height.localScale` 写回。
 
 实现保持简单：
 
@@ -31,13 +46,9 @@
 
 ### v1.2.4 的关闭修正
 
-关闭身高锁时，插件会先把当前人物的 `shapeValueBody` 重新同步到
-`cf_n_height`，再清理锁定缓存。因此关闭后当前人物立即恢复人物卡身高，
-不会留下最后一次锁定写入的 Transform 缩放。
+关闭身高锁时，插件会先把当前人物的 `shapeValueBody` 重新同步到 `cf_n_height`，再清理锁定缓存。因此关闭后当前人物立即恢复人物卡身高，不会留下最后一次锁定写入的 Transform 缩放。
 
-当体型保留模式为 `Off` 时，后续 `ChangeChara` 完成后也会立即执行同一套
-身体更新，确保新人物卡使用自己的身高参数。`ShapeOnly` / `AllBody` 仍按
-用户选择保留旧体型。
+当体型保留模式为 `Off` 时，后续 `ChangeChara` 完成后也会立即执行同一套身体更新，确保新人物卡使用自己的身高参数。`ShapeOnly` / `AllBody` 仍按用户选择保留旧体型。
 
 ## 体型保留
 
@@ -68,36 +79,26 @@ charInfo.UpdateShapeBodyValueFromCustomInfo();
 charInfo.UpdateShapeBody();
 ```
 
-`UpdateShapeBody()` 是 Koikatu 的公开方法，内部直接执行 `sibBody.Update()`，
-因此 `cf_n_height` 和其它体型骨骼会在当前 ChangeChara Postfix 内立即与恢复后的
-shapeValueBody 对齐。
+`UpdateShapeBody()` 是 Koikatu 的公开方法，内部直接执行 `sibBody.Update()`，因此 `cf_n_height` 和其它体型骨骼会在当前 ChangeChara Postfix 内立即与恢复后的 `shapeValueBody` 对齐。
 
 这样下一次 executionOrder=9996 的身高锁捕获到的是恢复后的最终身高，不是替换过程中的中间值。
 
-同时删除了 v1.2.2 Postfix 末尾第二次 `HeightLockPatch.ClearForCharacter()`：
-Prefix 在角色重建前已经清除旧缓存；ChangeChara 是同步调用，Postfix 之前不会跨帧重新建立
-HeightLock 状态，所以第二次清除没有必要。
+同时删除了 v1.2.2 Postfix 末尾第二次 `HeightLockPatch.ClearForCharacter()`：Prefix 在角色重建前已经清除旧缓存；ChangeChara 是同步调用，Postfix 之前不会跨帧重新建立 HeightLock 状态，所以第二次清除没有必要。
 
 ## “关闭体型保留”的语义
 
 `Off` 对后续 `ChangeChara` 生效。
 
-它不会撤销一个已经完成的角色替换。这不是防御限制，而是该功能的数据流定义：
-插件只在 ChangeChara Prefix 保存旧体型，在 Postfix 决定是否写回。
-
-## 快捷键
-
-- Ctrl + Shift + H：身高锁定
-- Ctrl + Shift + B：体型保留模式
-- Ctrl + Shift + F9：窗口
+它不会撤销一个已经完成的角色替换。这不是防御限制，而是该功能的数据流定义：插件只在 ChangeChara Prefix 保存旧体型，在 Postfix 决定是否写回。
 
 ## 构建
 
-build.bat：
+`build.bat`：
 
-- /noconfig
-- /nostdlib+
-- /langversion:4
+- `/noconfig`
+- `/nostdlib+`
+- `/langversion:4`
+- 同时编译 `KKPEHeightLockStandalone.cs` 与 `KKPEHeightLockF1Only.cs`
 - 输出到仓库根目录 `releases\KKPEHeightLockStandalone.dll`
 - 不自动安装
 - 不修改恋活原文件
