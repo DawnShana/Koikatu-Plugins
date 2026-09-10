@@ -1,23 +1,30 @@
-# KKPEHeightLockStandalone v1.2.4 SOURCE-PROVEN
+# KKPEHeightLockStandalone v1.2.5 SOURCE-PROVEN
 
-本版按 Koikatu / KKPE 源码执行链路实现身高锁定与角色替换时的体型保留，并追加 **F1-only 控制修复**：不再显示插件自带窗口，也不再响应插件自带快捷键；运行时控制统一交给 BepInEx ConfigurationManager（通常按 F1 打开）。
+本版按 Koikatu / KKPE 源码执行链路实现身高锁定与角色替换时的体型保留，并将运行时控制彻底收敛到 **BepInEx ConfigurationManager（通常按 F1 打开）**。
 
 ## 控制方式：仅 F1 / ConfigurationManager
 
-插件仍保留原有 `ConfigEntry`，因此无需额外 UI：
+当前插件只注册两个可配置项：
 
 - `Lock > HeightLockEnabled`：开启 / 关闭身高锁定；
 - `Lock > BodyPreserveMode`：`Off` / `ShapeOnly` / `AllBody`。
 
-已禁用：
+v1.2.5 已从源码中删除旧控制入口及其配置注册：
 
-- 启动时默认控制窗口；
-- Ctrl + Shift + H；
-- Ctrl + Shift + B；
-- Ctrl + Shift + F9；
-- 插件自己的 OnGUI 提示 / toast。
+- `Hotkey > HeightToggleKey`
+- `Hotkey > BodyModeKey`
+- `Hotkey > ToggleWindowKey`
+- `Hotkey > RequireCtrl`
+- `Hotkey > RequireShift`
+- `General > ShowWindow`
+- `General > ShowHotkeyToast`
+- 插件自带 `OnGUI` 控制窗口
+- 插件自带快捷键处理
+- toast 提示逻辑
 
-注意：关闭 `HeightLockEnabled` 时，原插件 `Update()` 中的配置变更检测仍然保留，因此会照常执行 `ReleaseAllAndRefresh()`，不会因为关闭自带窗口/快捷键而破坏身高恢复逻辑。
+因此这些旧项目不会再出现在 F1 ConfigurationManager 页面中。旧版 `.cfg` 文件中即使仍残留同名文本项，新版本也不会再 `Config.Bind` 它们，因此不会注册到 ConfigurationManager，也不会影响插件运行。
+
+关闭 `HeightLockEnabled` 时，插件仍保留 `Update()` 中的配置变更检测，并照常执行 `ReleaseAllAndRefresh()`，不会因为移除旧窗口/快捷键而破坏身高恢复逻辑。
 
 ## 身高锁定
 
@@ -98,7 +105,7 @@ charInfo.UpdateShapeBody();
 - `/noconfig`
 - `/nostdlib+`
 - `/langversion:4`
-- 同时编译 `KKPEHeightLockStandalone.cs` 与 `KKPEHeightLockF1Only.cs`
+- 仅编译 `KKPEHeightLockStandalone.cs`
 - 输出到仓库根目录 `releases\KKPEHeightLockStandalone.dll`
 - 不自动安装
 - 不修改恋活原文件
