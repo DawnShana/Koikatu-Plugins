@@ -22,7 +22,7 @@ namespace KK_DragCoordinateLoadBridge
     [BepInProcess("CharaStudio")]
     [BepInDependency(Plugin.PluginGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(CoordinateLoadOptionGuid, BepInDependency.DependencyFlags.SoftDependency)]
-    internal sealed class CoordinatePreviewRefreshPlugin : BaseUnityPlugin
+    public sealed class CoordinatePreviewRefreshPlugin : BaseUnityPlugin
     {
         private const string PreviewPluginGuid = "agumon.kk.dragcoordinateloadbridge.previewrefresh";
         private const string PreviewPluginName = "KK Drag Coordinate Load Bridge - Preview Refresh";
@@ -30,6 +30,7 @@ namespace KK_DragCoordinateLoadBridge
         private const string CoordinateLoadOptionGuid = "com.jim60105.kk.coordinateloadoption";
 
         private Harmony _harmony;
+        private MethodBase _targetMethod;
 
         private void Awake()
         {
@@ -64,6 +65,7 @@ namespace KK_DragCoordinateLoadBridge
 
                 _harmony = new Harmony(PreviewPluginGuid);
                 _harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+                _targetMethod = target;
                 Logger.LogInfo("Studio external-coordinate preview refresh hook installed.");
             }
             catch (Exception ex)
@@ -76,8 +78,8 @@ namespace KK_DragCoordinateLoadBridge
         {
             try
             {
-                if (_harmony != null)
-                    _harmony.UnpatchAll(PreviewPluginGuid);
+                if (_harmony != null && _targetMethod != null)
+                    _harmony.Unpatch(_targetMethod, HarmonyPatchType.Postfix, PreviewPluginGuid);
             }
             catch
             {
