@@ -7,8 +7,8 @@
 | 插件 | 当前版本 | 运行环境 | 主要用途 |
 |---|---:|---|---|
 | [KK_TimelineStateCleaner](./KK_TimelineStateCleaner/) | 1.3.1 | CharaStudio | 一键取消/恢复指定 Timeline 相机与服装状态轨道勾选 |
-| [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程 |
-| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.4 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型 |
+| [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程；Studio 外部拖卡同步刷新原生预览图 |
+| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.4 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型；运行时只通过 F1 ConfigurationManager 控制 |
 
 ## 直接依赖版本
 
@@ -57,4 +57,4 @@ Koikatu-Plugins/
 └─ KKPEHeightLockStandalone/
 ```
 
-具体安装、依赖、快捷键、配置、构建和排错方法请进入各插件目录查看 `README.md`。
+具体安装、依赖、配置、构建和排错方法请进入各插件目录查看 `README.md`。
