@@ -2,7 +2,7 @@
 
 适用于：**KKPEHeightLockStandalone v1.2.5 SOURCE-PROVEN**
 
-版本基线核对日期：**2026-08-20**。
+版本基线核对日期：**2026-09-10**。
 
 ## 直接依赖
 
