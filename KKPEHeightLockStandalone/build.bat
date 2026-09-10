@@ -43,8 +43,7 @@ if not exist "%MANAGED%\mscorlib.dll" (
 )
 
 set "CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-if exist "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" set "CSC=%WINDIR%\Microsoft.NET\Microsoft.NETFramework64\v4.0.30319\csc.exe"
-if not exist "%CSC%" set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if exist "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if not exist "%CSC%" (
     echo [ERROR] C# compiler csc.exe was not found.
     pause
