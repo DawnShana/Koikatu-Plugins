@@ -8,7 +8,21 @@
 |---|---:|---|---|
 | [KK_TimelineStateCleaner](./KK_TimelineStateCleaner/) | 1.3.1 | CharaStudio | 一键取消/恢复指定 Timeline 相机与服装状态轨道勾选 |
 | [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程；Studio 外部拖卡同步刷新原生预览图 |
-| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.4 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型；运行时只通过 F1 ConfigurationManager 控制 |
+| [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.5 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型；运行时只通过 F1 ConfigurationManager 控制 |
+
+## 更新日志
+
+### 2026-09-10
+
+- **KK_DragCoordinateLoadBridge 1.2.3 维护修订**
+  - 修复 CharaStudio 外部拖入 Coordinate / 服装卡后，Coordinate Load Option 已接管加载但原生预览图仍为空白的问题。
+  - 新增 Studio 预览刷新辅助逻辑，仅对 Bridge 创建的 detached 条目调用原生 `CostumeInfo.LoadImage(int)`；不改写服装卡 PNG，也不向 Studio 真实文件列表注入条目。
+  - `build.bat` 已同步编译预览刷新辅助源码，`self_check.py` 增加对应结构检查。
+- **KKPEHeightLockStandalone 1.2.5**
+  - 彻底移除插件自带窗口、toast 与 Ctrl+Shift 快捷键入口。
+  - 删除旧 `Hotkey`、`ShowWindow`、`ShowHotkeyToast` 配置注册，F1 ConfigurationManager 只保留 `HeightLockEnabled` 与 `BodyPreserveMode`。
+  - 删除临时 F1-only Harmony 屏蔽补丁，由主源码直接实现仅 F1 控制。
+  - 修正 `build.bat` 对特殊路径的兼容性，关闭 Delayed Expansion 并补齐依赖 DLL 检查。
 
 ## 直接依赖版本
 
@@ -19,7 +33,7 @@
 | KK_TimelineStateCleaner 1.3.1 | Timeline | `com.joan6694.illusionplugins.timeline` | **HardDependency** | **1.5.6** | 当前维护源码推荐基线；Cleaner 未在 `BepInDependency` 中声明最低版本 |
 | KK_DragCoordinateLoadBridge 1.2.3 | DragAndDrop | `keelhauled.draganddrop` | SoftDependency（功能实际必需） | **1.3.1** | Bridge 自带二进制审计明确记录的目标版本 |
 | KK_DragCoordinateLoadBridge 1.2.3 | Coordinate Load Option (CLO) | `com.jim60105.kk.coordinateloadoption` | SoftDependency（功能实际必需） | **21.12.25.1** | Bridge 自带二进制审计明确记录；内部 release 为 `1.1.8.2` |
-| KKPEHeightLockStandalone 1.2.4 | KKPE | `com.joan6694.kkplugins.kkpe` | **HardDependency** | **2.21.5** | 当前维护源码推荐基线；Height Lock 仅反射读取 KKPE `BonesEditor._target` 以取得当前角色 |
+| KKPEHeightLockStandalone 1.2.5 | KKPE | `com.joan6694.kkplugins.kkpe` | **HardDependency** | **2.21.5** | 当前维护源码推荐基线；Height Lock 仅反射读取 KKPE `BonesEditor._target` 以取得当前角色 |
 
 共同运行环境：**BepInEx 5.x**。`0Harmony.dll` 随 BepInEx 环境提供，Bridge 与 KKPEHeightLockStandalone 会使用它，但本仓库不单独锁定 Harmony 版本。
 
