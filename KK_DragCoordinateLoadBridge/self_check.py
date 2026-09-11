@@ -4,6 +4,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 CS = (ROOT / "KK_DragCoordinateLoadBridge.cs").read_text(encoding="utf-8-sig")
+PREVIEW = (ROOT / "KK_DragCoordinatePreviewRefresh.cs").read_text(encoding="utf-8-sig")
 BAT = (ROOT / "build.bat").read_text(encoding="utf-8-sig", errors="replace")
 
 checks = []
@@ -42,7 +43,7 @@ check("Path drift disables the bridge-armed Load button before release", "SetBut
 maker_prepare = maker[maker.find("internal PrepareResult PrepareDroppedCoordinate"): ]
 check("Native Maker UI navigation occurs before CLO panel readiness", 0 <= maker_prepare.find("OpenCoordinateLoadWindowThroughMakerUi(fileWindow)") < maker_prepare.find("object panel = _panelField.GetValue(null)"))
 check("Main System uses audited semantic index 6", "const int MainSystemIndex = 6;" in CS)
-check("No Transform ancestry guessing for Maker System tab", "IsChildOf" not in maker and "IsChildOf" not in maker)
+check("No Transform ancestry guessing for Maker System tab", "IsChildOf" not in maker)
 check("No redundant Maker CanvasGroup readiness gate", "CanvasGroup" not in maker)
 check("CoordinateLoad enum matched by name", 'Enum.Parse(_fileWindowTypeProperty.PropertyType, "CoordinateLoad", false)' in CS)
 check("No numeric CoordinateLoad == 3 runtime hardpin", "== 3" not in maker and "!= 3" not in maker)
@@ -50,8 +51,33 @@ check("No Maker Harmony patch-table gate", "Harmony.GetPatchInfo" not in maker)
 check("No second custom UI created by Maker bridge", "new GameObject(" not in maker and "CreateButton" not in maker)
 check("Maker bridge does not patch CLO methods", "HarmonyInstance.Patch(" not in maker)
 check("Maker bridge does not load/change ChaControl directly", "LoadFile(" not in maker and "ChangeClothes(" not in maker and "ChangeAccessory(" not in maker)
+
+# Studio external-coordinate preview compensation / persistence.
+check("Preview helper is CharaStudio-only", '[BepInProcess("CharaStudio")]' in PREVIEW and '[BepInProcess("Koikatu")]' not in PREVIEW)
+check("Preview helper depends on main bridge", "BepInDependency(Plugin.PluginGuid" in PREVIEW)
+check("Preview helper is hidden from ConfigurationManager", "[Browsable(false)]" in PREVIEW)
+check("Preview helper version is 1.1.0", 'PreviewPluginVersion = "1.1.0"' in PREVIEW)
+check("Preview hook targets CLO OnSelectPostfix", '"OnSelectPostfix"' in PREVIEW and "HarmonyPatchType.Postfix" in PREVIEW)
+check("Preview helper tracks CLO coordinatePath", 'GetField("coordinatePath"' in PREVIEW and "_coordinatePathField.GetValue(null) as string" in PREVIEW)
+check("Preview hook is limited to Studio CostumeInfo", '"Studio.MPCharCtrl+CostumeInfo"' in PREVIEW)
+check("Preview hook identifies detached item by null node", 'GetProperty("node"' in PREVIEW and "!= null" in PREVIEW)
+check("Preview hook calls native CostumeInfo.LoadImage exactly once in source", PREVIEW.count("loadImage.Invoke") == 1)
+check("Preview captures imageThumbnail texture", 'GetField("imageThumbnail"' in PREVIEW and "_preparedTexture" in PREVIEW)
+check("Preview persists from LateUpdate", "private void LateUpdate()" in PREVIEW and "MaintainPreparedPreview();" in PREVIEW)
+check("Preview restores only a cleared texture", "if (currentTexture == null)" in PREVIEW and "_imageTextureProperty.SetValue(_preparedImage, _preparedTexture, null);" in PREVIEW)
+check("Preview releases ownership when another real texture takes over", "!object.ReferenceEquals(currentTexture, _preparedTexture)" in PREVIEW and "ReleasePreparedPreview();" in PREVIEW)
+check("Preview keeps RawImage visible without reloading PNG", "_imageColorProperty.SetValue(_preparedImage, Color.white, null);" in PREVIEW)
+maintain_start = PREVIEW.find("private void MaintainPreparedPreview()")
+maintain_end = PREVIEW.find("private void ReleasePreparedPreview()", maintain_start)
+maintain = PREVIEW[maintain_start:maintain_end] if maintain_start >= 0 and maintain_end > maintain_start else ""
+check("LateUpdate maintenance does not call native LoadImage", "loadImage.Invoke" not in maintain and '"LoadImage"' not in maintain)
+check("Preview ownership follows CLO path", "PathsEqual(currentPath, _preparedPath)" in PREVIEW)
+check("Preview never parses or rewrites coordinate PNG itself", "PngAssist" not in PREVIEW and "LoadTexture(" not in PREVIEW and "LoadFile(" not in PREVIEW and "SaveFile(" not in PREVIEW)
+check("Preview exceptions release persistence state", "catch (TargetInvocationException ex)" in PREVIEW and "instance.ReleasePreparedPreview();" in PREVIEW)
+
 check("Build version is 1.2.3", "v1.2.3" in BAT)
-check("Build temp tag is v123", "v123" in BAT)
+check("Build includes main bridge source", '"KK_DragCoordinateLoadBridge.cs"' in BAT)
+check("Build includes preview helper source", '"KK_DragCoordinatePreviewRefresh.cs"' in BAT)
 check("Build uses Framework csc", "csc.exe" in BAT.lower())
 check("Build uses /nostdlib+", "/nostdlib+" in BAT)
 check("Build uses /langversion:4", "/langversion:4" in BAT)
@@ -110,9 +136,10 @@ def scan_balances(text):
             i+=1; continue
     return state=='code', not stack
 
-lex_ok, balance_ok = scan_balances(CS)
-check("Lexical state closes cleanly", lex_ok)
-check("Brace/parenthesis/bracket balance", balance_ok)
+for label, text in (("Main source", CS), ("Preview source", PREVIEW)):
+    lex_ok, balance_ok = scan_balances(text)
+    check(label + " lexical state closes cleanly", lex_ok)
+    check(label + " brace/parenthesis/bracket balance", balance_ok)
 
 passed = sum(1 for _, ok in checks if ok)
 for name, ok in checks:
