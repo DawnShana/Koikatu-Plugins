@@ -7,10 +7,20 @@
 | 插件 | 当前版本 | 运行环境 | 主要用途 |
 |---|---:|---|---|
 | [KK_TimelineStateCleaner](./KK_TimelineStateCleaner/) | 1.3.1 | CharaStudio | 一键取消/恢复指定 Timeline 相机与服装状态轨道勾选 |
-| [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程；Studio 外部拖卡同步刷新原生预览图 |
+| [KK_DragCoordinateLoadBridge](./KK_DragCoordinateLoadBridge/) | 1.2.3 | CharaStudio / Koikatu Maker | 将拖拽服装卡接入 Coordinate Load Option 的选择性加载流程；Studio 外部拖卡同步刷新并保持原生预览图 |
 | [KKPEHeightLockStandalone](./KKPEHeightLockStandalone/) | 1.2.5 | CharaStudio | 可控锁定 `cf_n_height` 身高，并在替换角色时按模式保留体型；运行时只通过 F1 ConfigurationManager 控制 |
 
 ## 更新日志
+
+### 2026-09-12
+
+- **KK_DragCoordinateLoadBridge 1.2.3 预览持久化修订**
+  - 根据实机反馈修复“外部服装卡预览图只显示一下，随后再次恢复空白”的问题。
+  - 确认 Studio 原生 `CostumeInfo.InitList()` 会在列表刷新时把 `imageThumbnail.color` 重新设为 `Color.clear`，因此一次性调用 `LoadImage()` 不足以维持预览。
+  - 预览辅助逻辑现在只调用一次原生 `LoadImage()` 并缓存其 texture；只要 CLO 当前路径仍为该外部卡，就维持同一 RawImage 可见。
+  - UI 仅清空 texture 时恢复已经加载的 texture，不重复读取 PNG；如果正常 Studio 预览换成另一张非空纹理，则立即释放维护权。
+  - 预览维持阶段不每帧调用 `LoadImage()`，避免反复触发 `Resources.UnloadUnusedAssets()` 与 `GC.Collect()`。
+  - 内部预览辅助插件隐藏于 ConfigurationManager，不在 F1 页面增加无用项目。
 
 ### 2026-09-10
 
