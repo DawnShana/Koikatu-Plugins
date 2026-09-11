@@ -52,15 +52,28 @@ check("No second custom UI created by Maker bridge", "new GameObject(" not in ma
 check("Maker bridge does not patch CLO methods", "HarmonyInstance.Patch(" not in maker)
 check("Maker bridge does not load/change ChaControl directly", "LoadFile(" not in maker and "ChangeClothes(" not in maker and "ChangeAccessory(" not in maker)
 
-# Studio external-coordinate preview compensation.
+# Studio external-coordinate preview compensation / persistence.
 check("Preview helper is CharaStudio-only", '[BepInProcess("CharaStudio")]' in PREVIEW and '[BepInProcess("Koikatu")]' not in PREVIEW)
 check("Preview helper depends on main bridge", "BepInDependency(Plugin.PluginGuid" in PREVIEW)
+check("Preview helper is hidden from ConfigurationManager", "[Browsable(false)]" in PREVIEW)
+check("Preview helper version is 1.1.0", 'PreviewPluginVersion = "1.1.0"' in PREVIEW)
 check("Preview hook targets CLO OnSelectPostfix", '"OnSelectPostfix"' in PREVIEW and "HarmonyPatchType.Postfix" in PREVIEW)
+check("Preview helper tracks CLO coordinatePath", 'GetField("coordinatePath"' in PREVIEW and "_coordinatePathField.GetValue(null) as string" in PREVIEW)
 check("Preview hook is limited to Studio CostumeInfo", '"Studio.MPCharCtrl+CostumeInfo"' in PREVIEW)
 check("Preview hook identifies detached item by null node", 'GetProperty("node"' in PREVIEW and "!= null" in PREVIEW)
-check("Preview hook calls native CostumeInfo.LoadImage", '"LoadImage"' in PREVIEW and "loadImage.Invoke" in PREVIEW)
-check("Preview hook never parses or rewrites coordinate PNG", "LoadTexture(" not in PREVIEW and "LoadFile(" not in PREVIEW and "SaveFile(" not in PREVIEW)
-check("Preview failure is fail-soft", "catch (TargetInvocationException)" in PREVIEW and "Preview failure must never break CLO's selective-load path." in PREVIEW)
+check("Preview hook calls native CostumeInfo.LoadImage exactly once in source", PREVIEW.count("loadImage.Invoke") == 1)
+check("Preview captures imageThumbnail texture", 'GetField("imageThumbnail"' in PREVIEW and "_preparedTexture" in PREVIEW)
+check("Preview persists from LateUpdate", "private void LateUpdate()" in PREVIEW and "MaintainPreparedPreview();" in PREVIEW)
+check("Preview restores only a cleared texture", "if (currentTexture == null)" in PREVIEW and "_imageTextureProperty.SetValue(_preparedImage, _preparedTexture, null);" in PREVIEW)
+check("Preview releases ownership when another real texture takes over", "!object.ReferenceEquals(currentTexture, _preparedTexture)" in PREVIEW and "ReleasePreparedPreview();" in PREVIEW)
+check("Preview keeps RawImage visible without reloading PNG", "_imageColorProperty.SetValue(_preparedImage, Color.white, null);" in PREVIEW)
+maintain_start = PREVIEW.find("private void MaintainPreparedPreview()")
+maintain_end = PREVIEW.find("private void ReleasePreparedPreview()", maintain_start)
+maintain = PREVIEW[maintain_start:maintain_end] if maintain_start >= 0 and maintain_end > maintain_start else ""
+check("LateUpdate maintenance does not call native LoadImage", "loadImage.Invoke" not in maintain and '"LoadImage"' not in maintain)
+check("Preview ownership follows CLO path", "PathsEqual(currentPath, _preparedPath)" in PREVIEW)
+check("Preview never parses or rewrites coordinate PNG itself", "PngAssist" not in PREVIEW and "LoadTexture(" not in PREVIEW and "LoadFile(" not in PREVIEW and "SaveFile(" not in PREVIEW)
+check("Preview exceptions release persistence state", "catch (TargetInvocationException ex)" in PREVIEW and "instance.ReleasePreparedPreview();" in PREVIEW)
 
 check("Build version is 1.2.3", "v1.2.3" in BAT)
 check("Build includes main bridge source", '"KK_DragCoordinateLoadBridge.cs"' in BAT)
